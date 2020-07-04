@@ -88,9 +88,6 @@ namespace sight
         {
             for (int x = sx; x < view1.w; x += pxOffset)
             {
-                // We'll use for efficiency's sake later (maybe)
-                // const T* src = view0.at(y, x);
-
                 // We'll solve for a translational transformation initially,
                 // just so we can test a simpler implementation.
                 
@@ -133,9 +130,12 @@ namespace sight
                     JTJ.setZero();
                     g.setZero();
 
+                    // We'll use a pointer to the row for efficiency's sake
+                    const T* srcRow = view0.at(y - localRadius, x);
+
                     // For all pixels in within [-r, r] x [-r, r] centered
                     // at this pixel..
-                    for (int oy = -localRadius, k = 0; oy <= localRadius; ++oy)
+                    for (int oy = -localRadius, k = 0; oy <= localRadius; ++oy, srcRow += view0.row_step)
                     {
                         for (int ox = -localRadius; ox <= localRadius; ++ox, ++k)
                         {
@@ -151,7 +151,7 @@ namespace sight
                             // const S pred = BilinearInterpolate<S, T, S>(view1, Wp[0], Wp[1]);
                             // const S obs = view0(p[1], p[0]);
                             const S pred = BilinearInterpolate<S, T, S>(view1, Wpx, Wpy);
-                            const S obs = view0(py, px);
+                            const S obs = srcRow[ox];// view0(py, px);
 
                             // Compute Jacobian of this residual
                             // Since, we're using translation, it's

@@ -27,16 +27,10 @@ namespace sight
         // a particular sub-pixel and linearly interpolate the 4 corners
         // based on their distance to each one.
 
-        const S p00 = (1 - unitx) * (1 - unity);
-        const S p01 = (1 - unitx) * unity;
-        const S p10 = unitx * (1 - unity);
-        const S p11 = unitx * unity;
+        // 6 mults, 3 adds, 3 subs
         return static_cast<Out>(
-            p00 * ptr[0] +
-            p01 * ptr[row_step] +
-            p10 * ptr[col_step] +
-            p11 * ptr[row_step + col_step]
-        );
+            (1 - unitx) * (ptr[    0   ] * (1 - unity) + ptr[row_step           ] * unity) +
+            unitx       * (ptr[col_step] * (1 - unity) + ptr[row_step + col_step] * unity));
     }
  
     template <typename Out, typename T, typename S = float>
@@ -44,11 +38,6 @@ namespace sight
     {
         const int x0 = int(x);
         const int y0 = int(y);
-
-        // assert(x0 >= 0);
-        // assert(y0 >= 0);
-        // assert(x0 + 1 < im.w);
-        // assert(y0 + 1 < im.h);
 
         return BilinearInterpolate<Out, T, S>(
             im.at(y0, x0, ch),
