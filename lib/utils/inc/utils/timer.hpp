@@ -6,6 +6,7 @@ namespace sight
 {
     class Timer
     {
+    public:
         Timer()
         {
             Reset();
@@ -23,13 +24,14 @@ namespace sight
             return dur.count();
         }
 
-        double DurationAndReset() const
+        double DurationAndReset()
         {
             const auto duration = DurationSecs();
             Reset();
             return duration;
         }
-        
+    
+    private:
         std::chrono::high_resolution_clock::time_point start;
     };
 }

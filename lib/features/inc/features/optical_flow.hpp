@@ -8,6 +8,7 @@
 #include <image/image_ops.hpp>
 #include <image/image_gen.hpp>
 #include <linear/vec.hpp>
+#include <utils/timer.hpp>
 
 namespace sight
 {
@@ -43,15 +44,19 @@ namespace sight
             return;
         }
 
+        Timer t;
+
         const Image<T> view0 = PadView(image0, localRadius + 1);
 
         // Not necessary to compute the entirety of the image's gradient.
         // Maybe it's faster to compute each region itself (although, that
         // would be slower for dense flows).
+        using TT = std::common_type<int, T>::type;
         const int padding = std::max({localRadius, maxDisplacement}) + 1;
-        const Image<int> dx = PadView(Sobel3x3_Horizontal<int, T>(view0), padding);
-        const Image<int> dy = PadView(Sobel3x3_Vertical<int, T>(view0), padding);
+        const Image<TT> Idx = PadView(Sobel3x3_Horizontal<TT, T>(view0), padding);
+        const Image<TT> Idy = PadView(Sobel3x3_Vertical<TT, T>(view0), padding);
         const Image<T> view1 = PadView(image1, padding);
+        std::cout << "\t" << t.DurationAndReset() << " seconds padding/derivatives" << std::endl;
 
         std::vector<S> gKernel = GaussianKernel<S>(localRadius, 2.0);
         std::vector<S> weights(gKernel.size() * gKernel.size());
@@ -67,6 +72,14 @@ namespace sight
         const int numExpectedFlows =
             ((image0.w + pxOffset - 1) / pxOffset) * ((image0.h + pxOffset - 1) / pxOffset);
         flows.reserve(numExpectedFlows);
+        std::cout << "\t" << t.DurationAndReset() << " seconds constants" << std::endl;
+
+        // To be re-used often..
+        //
+        // Should be NxN where N is dimension of the warping function
+        // Should be 1xN where N is dimension of the warping function
+        Eigen::Matrix<S, 2, 2> JTJ;
+        Eigen::Vector<S, 2> g;
 
         const int dispThreshSq = maxDisplacement * maxDisplacement;
         const int sx = pxOffset / 2;
@@ -98,9 +111,11 @@ namespace sight
                 Flow<S> flow;
                 flow.valid = true;
                 flow.radius = localRadius;
-                flow.pos = { S(x), S(y) };
-                flow.velocity.Fill(S(0));
-                flow.warp = Eigen::Matrix3<S>::Identity();
+                flow.pos[0] = S(x);
+                flow.pos[1] = S(y);
+                flow.velocity[0] = S(0);
+                flow.velocity[1] = S(0);
+                // flow.warp = Eigen::Matrix3<S>::Identity();
 
                 // Initialize the translation to 0
                 Vec2<S> w = { S(0), S(0) };
@@ -114,15 +129,9 @@ namespace sight
                         break;
                     }
 
-                    // Should be NxN where N is dimension of the warping function
-                    Eigen::Matrix<S, 2, 2> JTJ;
+                    // Reset our Hessian and gradient for each iteration
                     JTJ.setZero();
-
-                    // Should be 1xN where N is dimension of the warping function
-                    Eigen::Vector<S, 2> g;
                     g.setZero();
-
-                    S totalResSq = S(0);
 
                     // For all pixels in within [-r, r] x [-r, r] centered
                     // at this pixel..
@@ -131,25 +140,38 @@ namespace sight
                         for (int ox = -localRadius; ox <= localRadius; ++ox, ++k)
                         {
                             // Compute the warped point
-                            const Vec2<int> p = { x + ox, y + oy };
-                            const Vec2<S> Wp = { p[0] + w[0], p[1] + w[1] };
+                            // const Vec2<int> p = { x + ox, y + oy };
+                            // const Vec2<S> Wp = { p[0] + w[0], p[1] + w[1] };
+                            const int px = x + ox;
+                            const int py = y + oy;
+                            const S Wpx = px + w[0];
+                            const S Wpy = py + w[1];
 
                             // Compute the warped point's intensity
-                            const S pred = BilinearInterpolate<S, T, S>(view1, Wp[0], Wp[1]);
-                            const S obs = view0(p[1], p[0]);
+                            // const S pred = BilinearInterpolate<S, T, S>(view1, Wp[0], Wp[1]);
+                            // const S obs = view0(p[1], p[0]);
+                            const S pred = BilinearInterpolate<S, T, S>(view1, Wpx, Wpy);
+                            const S obs = view0(py, px);
 
                             // Compute Jacobian of this residual
                             // Since, we're using translation, it's
                             // just the Jacobian of the original image.
-                            Eigen::Matrix<S, 1, 2> J;
-                            J << S(dx(p[1], p[0])), S(dy(p[1], p[0]));
+                            const TT dx = Idx(py, px);
+                            const TT dy = Idy(py, px);
+                            const TT dxdy = dx * dy;
 
                             const S weight = weights[k];
                             const S residual = weight * (pred - obs);
-                            totalResSq += residual * residual;
 
-                            JTJ += J.transpose() * J;
-                            g += J.transpose() * residual;
+                            // JTJ += J.Transpose() * J;
+                            JTJ(0) += dx * dx;
+                            JTJ(1) += dxdy;
+                            JTJ(2) += dxdy;
+                            JTJ(3) += dy * dy;
+
+                            // g += J.transpose() * residual;
+                            g(0) += dx * residual;
+                            g(1) += dy * residual;
                         }
                     }
 
@@ -173,7 +195,8 @@ namespace sight
                     }
                 }
 
-                flow.velocity = { w[0], w[1] };
+                flow.velocity[0] = w[0];
+                flow.velocity[1] = w[1];
                 // if (flow.valid)
                 // {
                 //     // flow.warp = ...
@@ -182,6 +205,6 @@ namespace sight
                 flows.push_back(flow);
             }
         }
+        std::cout << "\t" << t.DurationAndReset() << " seconds optimization" << std::endl;
     }
-
 }

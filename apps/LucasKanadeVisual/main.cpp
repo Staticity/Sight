@@ -17,8 +17,10 @@ int main(int argc, char** argv)
     const std::string im0Path = (exe.parent_path() / "inputs" / folder / "image0.png").string();
     const std::string im1Path = (exe.parent_path() / "inputs" / folder / "image1.png").string();
 
+    Timer t;
     const auto im0 = ToGrayscale(Image<uint8_t>::Read(im0Path));
     const auto im1 = ToGrayscale(Image<uint8_t>::Read(im1Path));
+    std::cout << t.DurationAndReset() << " seconds reading" << std::endl;
 
     // {
     //     auto mat = Sobel3x3_Horizontal<float>(PadView(im0, 1)).ToOpenCV();
@@ -31,7 +33,8 @@ int main(int argc, char** argv)
     // cv::waitKey(0);
 
     std::vector<Flow<float>> flows;
-    OpticalFlow_KLT(im0, im1, flows, 10, 20, 100, 10);
+    OpticalFlow_KLT(im0, im1, flows, 20, 30, 100, 10);
+    std::cout << t.DurationAndReset() << " seconds flow" << std::endl;
  
     auto mat = ToRGB(im0).ToOpenCV();
     for (const auto& flow : flows)
@@ -42,6 +45,7 @@ int main(int argc, char** argv)
         // cv::circle(mat, center, flow.radius, color);
         cv::arrowedLine(mat, center, center + 3 * offset, color);
     }
+    std::cout << t.DurationAndReset() << " seconds drawing" << std::endl;
     cv::imshow("Flow", mat);
     cv::waitKey(0);
 }
