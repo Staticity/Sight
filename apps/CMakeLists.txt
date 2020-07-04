@@ -7,4 +7,5 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 project(apps)
 
 add_subdirectory(FindSO3ExpThreshold)
+add_subdirectory(LucasKanadeVisual)
 add_subdirectory(Sandbox)

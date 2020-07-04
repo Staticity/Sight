@@ -149,7 +149,7 @@ TEST_CASE("Test 2D Convolution with Separable Filter")
     const int p = int(kernel.size() / 2);
     const auto padded = Pad(im, p);
     const auto view = padded(sight::Roi(p, p, im.w, im.h));
-    const auto res = sight::ConvolveSeparable<int, int, int>(view, kernel);
+    const auto res = sight::ConvolveSeparable<int, int, int>(view, kernel, kernel);
 
     // The first channel is all 1's, so the result is simply the sum of the 2D kernel weights
     const int sumWeights = 256;

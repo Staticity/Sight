@@ -1,6 +1,5 @@
 #pragma once
 
-#include <utils/eigentypes.hpp>
 #include <image/image.hpp>
 #include <image/pyramid.hpp>
 #include <image/image_ops.hpp>

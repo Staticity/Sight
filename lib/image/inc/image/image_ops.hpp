@@ -4,6 +4,9 @@
 #include <Eigen/Core>
 #include <type_traits>
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 namespace sight
 {
     template <typename Out, typename T, typename S>
@@ -12,11 +15,11 @@ namespace sight
         return static_cast<Out>((x + .5f) * s - .5f);
     }
 
-    template <typename Out, typename T>
+    template <typename Out, typename T, typename S = float>
     inline Out BilinearInterpolate(
         const T* ptr,
-        float unitx,
-        float unity,
+        S unitx,
+        S unity,
         int row_step,
         int col_step)
     {
@@ -24,10 +27,10 @@ namespace sight
         // a particular sub-pixel and linearly interpolate the 4 corners
         // based on their distance to each one.
 
-        const float p00 = (1 - unitx) * (1 - unity);
-        const float p01 = (1 - unitx) * unity;
-        const float p10 = unitx * (1 - unity);
-        const float p11 = unitx * unity;
+        const S p00 = (1 - unitx) * (1 - unity);
+        const S p01 = (1 - unitx) * unity;
+        const S p10 = unitx * (1 - unity);
+        const S p11 = unitx * unity;
         return static_cast<Out>(
             p00 * ptr[0] +
             p01 * ptr[row_step] +
@@ -36,18 +39,18 @@ namespace sight
         );
     }
  
-    template <typename Out, typename T>
-    inline Out BilinearInterpolate(const Image<T>& im, float x, float y, int ch = 1)
+    template <typename Out, typename T, typename S = float>
+    inline Out BilinearInterpolate(const Image<T>& im, S x, S y, int ch = 1)
     {
         const int x0 = int(x);
         const int y0 = int(y);
 
-        assert(x0 >= 0);
-        assert(y0 >= 0);
-        assert(x0 + 1 < im.w);
-        assert(y0 + 1 < im.h);
+        // assert(x0 >= 0);
+        // assert(y0 >= 0);
+        // assert(x0 + 1 < im.w);
+        // assert(y0 + 1 < im.h);
 
-        return BilinearInterpolate<T, Out>(
+        return BilinearInterpolate<Out, T, S>(
             im.at(y0, x0, ch),
             x - x0,
             y - y0,
@@ -88,8 +91,49 @@ namespace sight
         Resize(im, res);
         return res;
     }
+    
+    template <typename Out, typename T>
+    Image<Out> Sobel3x3_Horizontal(const Image<T>& im)
+    {
+        const std::vector<int> kernelH = {-1, 0, 1};
+        const std::vector<int> kernelV = { 1, 2, 1};
+        return ConvolveSeparable<T, int, Out>(im, kernelH, kernelV);
+    }
+    
+    template <typename Out, typename T>
+    Image<Out> Sobel3x3_Vertical(const Image<T>& im)
+    {
+        const std::vector<int> kernelH = { 1, 2, 1};
+        const std::vector<int> kernelV = {-1, 0, 1};
+        return ConvolveSeparable<T, int, Out>(im, kernelH, kernelV);
+    }
 
-    std::vector<float> GaussianKernel(int radius, float sigma);
+    template <typename S>
+    std::vector<S> GaussianKernel(int radius, S sigma)
+    {
+        const int size = radius * 2 + 1;
+        std::vector<S> kernel(size);
+
+        const S twosigmasq = S(2) * sigma * sigma;
+        const S scale = S(1) / (twosigmasq * S(M_PI));
+
+        S sum = S(0);
+        auto kern = kernel.begin() + radius;
+        for (int i = -radius; i <= radius; ++i)
+        {
+            const S v = exp(-(i * i) / twosigmasq) * scale;
+            kern[i] = v;
+            sum += v;
+        }
+
+        const S normalizer = S(1) / sum;
+        for (auto& v : kernel)
+        {
+            v *= normalizer;
+        }
+
+        return kernel;
+    }
 
     template <typename T, typename Out>
     Image<Out> GaussianBlur(
@@ -98,7 +142,7 @@ namespace sight
         const int radius)
     {
         const std::vector<float> kernel = GaussianKernel(radius, sigma);
-        return ConvolveSeparable<T, float, Out>(im, kernel);
+        return ConvolveSeparable<T, float, Out>(im, kernel, kernel);
     }
 
     template <typename T, typename S, typename Out>
@@ -200,14 +244,16 @@ namespace sight
     template <typename T, typename S, typename Out>
     Image<Out> ConvolveSeparable(
         const Image<T>& im,
-        const std::vector<S>& kernel)
+        const std::vector<S>& kernelH,
+        const std::vector<S>& kernelV)
     {
-        assert(kernel.size() % 2 == 1);
+        assert(kernelH.size() % 2 == 1);
+        assert(kernelV.size() % 2 == 1);
 
-        const int padding = int(kernel.size() / 2);
-        const auto tmp = ConvolveHorizontal1D<T, S, Out>(im, kernel);
+        const int padding = int(std::max(kernelH.size() / 2, kernelV.size() / 2));
+        const auto tmp = ConvolveHorizontal1D<T, S, Out>(im, kernelH);
         const auto view = Pad(tmp, padding)(Roi(0, 0, im.w, im.h) + padding);
-        const auto res = ConvolveVertical1D<Out, S, Out>(view, kernel);
+        const auto res = ConvolveVertical1D<Out, S, Out>(view, kernelV);
 
         return res;
     }
@@ -338,7 +384,7 @@ namespace sight
 
         Image<T> rgb(im.w, im.h, 3);
 
-        const auto srcRow = im.begin();
+        auto srcRow = im.begin();
         auto dstRow = rgb.begin();
         for (int i = 0; i < im.h; ++i)
         {
