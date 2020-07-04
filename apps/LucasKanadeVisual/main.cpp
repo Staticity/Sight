@@ -33,7 +33,7 @@ int main(int argc, char** argv)
     // cv::waitKey(0);
 
     std::vector<Flow<float>> flows;
-    OpticalFlow_KLT(im0, im1, flows, 20, 30, 100, 10);
+    OpticalFlow_KLT(im0, im1, flows, true, 10, 10, 10, 50, .01f, .0001f);
     std::cout << t.DurationAndReset() << " seconds flow" << std::endl;
  
     auto mat = ToRGB(im0).ToOpenCV();

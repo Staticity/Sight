@@ -30,11 +30,13 @@ namespace sight
         const Image<T>& image0,
         const Image<T>& image1,
         std::vector<Flow<S>>& flows,
+        const bool blurImage = true,
         const int pxOffset = 5,
         const int localRadius = 5,
         const int maxDisplacement = 21,
         const int maxRefinementIterations = 10,
-        const S minEigenValue = S(.01))
+        const S minEigenValue = S(.01),
+        const S updateEpsilon = std::numeric_limits<S>::epsilon())
     {
         // Only supporting grayscale images for now.
         assert(image0.c == 1);
@@ -46,7 +48,18 @@ namespace sight
 
         Timer t;
 
-        const Image<T> view0 = PadView(image0, localRadius + 1);
+        // Radius for gaussian blurring
+        const int gaussR = 5;
+
+        Image<T> view0;
+        if (blurImage)
+        {
+            view0 = PadView(GaussianBlur<T, T>(PadView(image0, gaussR), 1.0f, gaussR), localRadius + 1);
+        }
+        else
+        {
+            view0 = PadView(image0, localRadius + 1);
+        }
 
         // Not necessary to compute the entirety of the image's gradient.
         // Maybe it's faster to compute each region itself (although, that
@@ -55,7 +68,15 @@ namespace sight
         const int padding = std::max({localRadius, maxDisplacement}) + 1;
         const Image<TT> Idx = PadView(Sobel3x3_Horizontal<TT, T>(view0), padding);
         const Image<TT> Idy = PadView(Sobel3x3_Vertical<TT, T>(view0), padding);
-        const Image<T> view1 = PadView(image1, padding);
+        Image<T> view1;
+        if (blurImage)
+        {
+            view1 = PadView(GaussianBlur<T, T>(PadView(image1, gaussR), 1.0f, gaussR), padding);
+        }
+        else
+        {
+            view1 = PadView(image1, padding);            
+        }
         std::cout << "\t" << t.DurationAndReset() << " seconds padding/derivatives" << std::endl;
 
         std::vector<S> gKernel = GaussianKernel<S>(localRadius, 2.0);
@@ -189,7 +210,7 @@ namespace sight
                     w[1] += wDelta(1);
 
                     // convergence
-                    if (wDelta.squaredNorm() <= std::numeric_limits<S>::epsilon())
+                    if (wDelta.squaredNorm() <= updateEpsilon)
                     {
                         break;
                     }
