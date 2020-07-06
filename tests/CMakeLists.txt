@@ -4,6 +4,7 @@ project(tests)
 
 add_executable(tests
     test.cpp
+    calibration/camera_test.cpp
     geometric/homography_test.cpp
     geometric/triangulation_test.cpp
     features/fast_test.cpp

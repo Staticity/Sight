@@ -7,6 +7,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+add_subdirectory(calibration)
 add_subdirectory(features)
 add_subdirectory(geometric)
 add_subdirectory(image)

@@ -22,18 +22,8 @@ int main(int argc, char** argv)
     const auto im1 = ToGrayscale(Image<uint8_t>::Read(im1Path));
     std::cout << t.DurationAndReset() << " seconds reading" << std::endl;
 
-    // {
-    //     auto mat = Sobel3x3_Horizontal<float>(PadView(im0, 1)).ToOpenCV();
-    //     cv::imshow("SobelX", mat);
-    // }
-    // {
-    //     auto mat = Sobel3x3_Vertical<float>(PadView(im0, 1)).ToOpenCV();
-    //     cv::imshow("SobelY", mat);
-    // }
-    // cv::waitKey(0);
-
     std::vector<Flow<float>> flows;
-    OpticalFlow_KLT(im0, im1, flows, true, 10, 10, 10, 50, .01f, .0001f);
+    OpticalFlow_KLT(im0, im1, flows, false, 10, 10, 10, 50, .01f, .0001f);
     std::cout << t.DurationAndReset() << " seconds flow" << std::endl;
  
     auto mat = ToRGB(im0).ToOpenCV();
