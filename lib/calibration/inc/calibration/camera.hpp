@@ -3,6 +3,8 @@
 #include <lie/se3.hpp>
 #include <calibration/cameramodel.hpp>
 
+#include <memory>
+
 namespace sight
 {
     template <typename S>
@@ -14,7 +16,12 @@ namespace sight
             , model()
         {}
 
+        void CopyCamera(const CameraModel<S>& cam)
+        {
+            model.reset(cam.Clone());
+        }
+
         SE3<S> Rt;
-        CameraModel<S> model;
+        std::shared_ptr<CameraModel<S>> model;
     };
 }

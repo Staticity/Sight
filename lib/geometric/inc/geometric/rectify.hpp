@@ -1,0 +1,458 @@
+#pragma once
+
+#include <Eigen/Eigen>
+
+#include <image/image.hpp>
+#include <image/image_ops.hpp>
+#include <image/image_gen.hpp>
+#include <calibration/pinholemodel.hpp>
+#include <calibration/device.hpp>
+
+namespace sight
+{
+    template <typename S>
+    void DecomposeFundamentalIntoSM(
+        const Eigen::Matrix3<S>& F,
+        Eigen::Matrix3<S>& M)
+    {
+        const Eigen::JacobiSVD svd(F, Eigen::ComputeFullU | Eigen::ComputeFullV);
+        const auto sv = svd.singularValues();
+
+        Eigen::Matrix3<S> Lp;
+        Lp <<
+            sv(0), S(0), S(0),
+            S(0), sv(1), S(0),
+            S(0), S(0), (sv(0) + sv(1)) / S(2);
+        
+        Eigen::Matrix3<S> W;
+        W <<
+            S(0), S(-1), S(0),
+            S(1), S(0), S(0),
+            S(0), S(0), S(1);
+        
+        M = svd.matrixU() * W * Lp * svd.matrixV().transpose();
+    }
+
+    template <typename S>
+    void ComputeEpipolesFromEssentialOrFundamental(
+        const Eigen::Matrix3<S>& F,
+        S e0[3],
+        S e1[3])
+    {
+        const Eigen::JacobiSVD svd(F, Eigen::ComputeFullU | Eigen::ComputeFullV);
+        const Eigen::Vector3<S> epi0 = svd.matrixV().col(2);
+        const Eigen::Vector3<S> epi1 = svd.matrixU().col(2);
+
+        e0[0] = epi0[0];
+        e0[1] = epi0[1];
+        e0[2] = epi0[2];
+
+        e1[0] = epi1[0];
+        e1[1] = epi1[1];
+        e1[2] = epi1[2];
+    }
+
+    template <typename S>
+    Eigen::Matrix3<S> ComputeEssentialFromRelativePose(
+        const SE3<S>& cam1FromCam0)
+    {
+        const auto& Rot = cam1FromCam0.R;
+        const auto& t = cam1FromCam0.t;
+        Eigen::Matrix3<S> R;
+        R <<
+            Rot[0], Rot[1], Rot[2],
+            Rot[3], Rot[4], Rot[5],
+            Rot[6], Rot[7], Rot[8];
+
+        Eigen::Matrix3<S> Tx;
+        Tx <<
+             S(0), -t[2],  t[1],
+             t[2],  S(0), -t[0],
+            -t[1],  t[0],  S(0);
+
+        return Tx * R;
+    }
+
+    template <typename S>
+    Eigen::Matrix3<S> ComputeFundamentalFromCalibration(
+        const CameraModel<S>& cam0,
+        const CameraModel<S>& cam1,
+        const SE3<S>& cam1FromCam0)
+    {
+        assert(cam0.Name() == "pinhole");
+        assert(cam1.Name() == "pinhole");
+
+        // Linear calibrations are 3x3 matrices of the form:
+        //
+        // [fx 0 cx]
+        // [0 fy cy]
+        // [0  0  1]
+        //
+        // With inverses:
+        //
+        // [1/fx     0  -cx/fx]
+        // [   0  1/fy  -cy/fy]
+        // [   0     0       1]
+
+        Eigen::Matrix3<S> K0_inv;
+
+        // Compute K0^-1
+        {
+            const S fx = cam0.Param(PinholeModel<S>::FX);
+            const S fy = cam0.Param(PinholeModel<S>::FY);
+            const S cx = cam0.Param(PinholeModel<S>::CX);
+            const S cy = cam0.Param(PinholeModel<S>::CY);
+
+            K0_inv <<
+                S(1) / fx,      S(0), -cx / fx,
+                S(0)     , S(1) / fy, -cy / fy,
+                S(0)     ,      S(0),     S(1);
+        }
+
+        Eigen::Matrix3<S> K1_inv;
+        // Compute K1^-1
+        {
+            const S fx = cam1.Param(PinholeModel<S>::FX);
+            const S fy = cam1.Param(PinholeModel<S>::FY);
+            const S cx = cam1.Param(PinholeModel<S>::CX);
+            const S cy = cam1.Param(PinholeModel<S>::CY);
+
+            K1_inv <<
+                S(1) / fx,      S(0), -cx / fx,
+                S(0)     , S(1) / fy, -cy / fy,
+                S(0)     ,      S(0),     S(1);
+        }
+
+        const Eigen::Matrix3<S> E = ComputeEssentialFromRelativePose(cam1FromCam0);
+        return K1_inv.transpose() * E * K0_inv;
+    }
+
+    template <typename S>
+    void ComputeEpipolesFromLinearCalibration(
+        const CameraModel<S>& cam0,
+        const CameraModel<S>& cam1,
+        const SE3<S>& cam1FromCam0,
+        Eigen::Matrix3<S>& F,
+        Vec3<S>& e0,
+        Vec3<S>& e1)
+    {
+        assert(cam0.Name() == "pinhole");
+        assert(cam1.Name() == "pinhole");
+
+        F = ComputeFundamentalFromCalibration(cam0, cam1, cam1FromCam0);
+        ComputeEpipolesFromEssentialOrFundamental(F, &e0[0], &e1[0]);
+    }
+
+    template <typename S>
+    void ComputeEpipolesFromCalibration(
+        const CameraModel<S>& cam0,
+        const CameraModel<S>& cam1,
+        const SE3<S>& cam1FromCam0,
+        Vec3<S>& e0,
+        Vec3<S>& e1)
+    {
+        const Eigen::Matrix3<S> E = ComputeEssentialFromRelativePose(cam1FromCam0);
+        
+        Vec3<S> me0, me1;
+        ComputeEpipolesFromEssentialOrFundamental(E, &me0[0], &me1[0]);
+
+        // Project the epipolar metric rays back into the images
+        cam0.Project(me0[0], me0[1], me0[2], e0[0], e0[1]);
+        e0[2] = S(1);
+
+        cam1.Project(me1[0], me1[1], me1[2], e1[0], e1[1]);
+        e1[2] = S(1);
+    }
+
+    template <typename S>
+    void ComputeEpipolesFromCalibration(
+        const Camera<S>& cam0,
+        const Camera<S>& cam1,
+        Vec3<S>& e0,
+        Vec3<S>& e1)
+    {
+        ComputeEpipolesFromCalibration(*cam0.model, *cam1.model, cam1.Rt * .Rt.Inverse());
+    }
+
+    template <typename S>
+    PinholeModel<S> FindOptimalLinearCalibration(
+        const CameraModel<S>& cam,
+        const int currentWidth,
+        const int currentHeight,
+        const int desiredWidth,
+        const int desiredHeight,
+        const S xRadius = std::numeric_limits<S>::max(),
+        const S yRadius = std::numeric_limits<S>::max())
+    {
+        // Let's unproject all of the boundary pixels to
+        // find the bounding rectangle of all the coordinates.
+        const S invW = S(1) / currentWidth;
+        const S invH = S(1) / currentHeight;
+        S minX = std::numeric_limits<S>::max();
+        S minY = std::numeric_limits<S>::max();
+        S maxX = std::numeric_limits<S>::min();
+        S maxY = std::numeric_limits<S>::min();
+
+        // We choose to unproject the entirety of the image
+        // insetad of just the boundary, since some camera
+        // models may not be able to unproject the boundaries
+        // due to extreme distortion.
+        //
+        // We will slightly optimize this process by scanning
+        // each scanline left-to-right until success, and vice-versa.
+        for (int i = 0; i < currentHeight; ++i)
+        {
+            S xz, yz;
+
+            int l;
+            for (l = 0; l < currentWidth; ++l)
+            {
+                if (cam.Unproject((S(l) + S(0.5)) * invW, (S(i) + S(0.5)) * invH, xz, yz))
+                {
+                    minX = std::min(xz, minX);
+                    minY = std::min(yz, minY);
+                    maxX = std::max(xz, maxX);
+                    maxY = std::max(yz, maxY);
+                    break;
+                }
+            }
+
+            for (int r = currentWidth - 1; r > l; --r)
+            {
+                if (cam.Unproject((S(r) + S(0.5)) * invW, (S(i) + S(0.5)) * invH, xz, yz))
+                {
+                    minX = std::min(xz, minX);
+                    minY = std::min(yz, minY);
+                    maxX = std::max(xz, maxX);
+                    maxY = std::max(yz, maxY);
+                    break;
+                }
+            }
+        }
+
+        // Clamp the bounding box to the maxRadius defined
+        minX = std::max(minX, -xRadius);
+        minY = std::max(minY, -xRadius);
+        maxX = std::min(maxX, xRadius);
+        maxY = std::min(maxY, xRadius);
+
+        // Now that we have the bounds of the undistortion, we can
+        // solve for a camera calibration which projects the bounding
+        // rectangle into the bounds of our image.
+        //
+        // So find K such that K * {minX, minY, 1} = (0.5 / w, 0.5 / h)
+        // and so forth.
+        //
+        // K has 5 parameters:
+        //
+        //     fx, fy, cx, cy, and skew
+        //
+        // fx and fy are simply the ratio between the bounding rectangle
+        // and the new image's bounds.
+        //
+        // Then we have:
+        //
+        //     fx * minX + cx = 0.5 / w
+        //     fy * minY + cy = 0.5 / h
+        //
+        // So, 
+
+        const S dx = maxX - minX;
+        const S dy = maxY - minY;
+
+        const S fx = desiredWidth / dx;
+        const S fy = desiredHeight / dy;
+        const S cx = S(0.5) * invW - fx * minX;
+        const S cy = S(0.5) * invH - fy * minY;
+
+        const S destInvW = S(1) / desiredWidth;
+        const S destInvH = S(1) / desiredHeight;
+
+        PinholeModel<S> outCam;
+        outCam.Param(PinholeModel<S>::FX) = fx * destInvW;
+        outCam.Param(PinholeModel<S>::FY) = fy * destInvH;
+        outCam.Param(PinholeModel<S>::CX) = cx * destInvW;
+        outCam.Param(PinholeModel<S>::CY) = cy * destInvH;
+        outCam.Param(PinholeModel<S>::SKEW) = S(0);
+        return outCam;
+    }
+
+    template <typename T, typename S>
+    bool UndistortImage(
+        const Image<T>& im,
+        const CameraModel<S>& cam,
+        const PinholeModel<S>& newCam,
+        Image<T>& outIm)
+    {
+        if (outIm.w == 0 || outIm.h == 0)
+        {
+            outIm = Image<T>(im.w, im.h, im.c);
+        }
+
+        // Now, we must inverse sample the pixels in the original
+        // image into the new image.
+        const S invW = S(1) / outIm.w;
+        const S invH = S(1) / outIm.h;
+        auto view = PadView(im, 1);
+        for (int i = 0; i < outIm.h; ++i)
+        {
+            T* row = outIm.row(i);
+            for (int j = 0, k = 0; j < outIm.w; ++j)
+            {
+                bool ok = true;
+                // Map back into metric space
+                S xz, yz;
+                ok &= newCam.Unproject(
+                    (S(j) + S(.5)) * invW,
+                    (S(i) + S(.5)) * invH,
+                    xz,
+                    yz);
+
+                // Project into the original image
+                S u, v;
+                ok &= cam.Project(xz, yz, S(1), u, v, nullptr, nullptr);
+                u = (u * im.w) - S(.5);
+                v = (v * im.h) - S(.5);
+
+                ok &= u >= 0 && u <= view.w;
+                ok &= v >= 0 && v <= view.h;
+
+                // Bilinear sample this location for each location
+                if (ok)
+                {
+                    for (int ch = 0; ch < outIm.c; ++ch, ++k)
+                    {
+                        row[k] = BilinearInterpolate<T, T, S>(view, u, v, ch);
+                    }
+                }
+                else
+                {
+                    for (int ch = 0; ch < outIm.c; ++ch, ++k)
+                    {
+                        row[k] = T(0);
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    template <typename T, typename S>
+    bool UndistortImage(
+        const Image<T>& im,
+        const CameraModel<S>& cam,
+        Image<T>& outIm,
+        PinholeModel<S>& outCam,
+        const S xRadius = std::numeric_limits<S>::max(),
+        const S yRadius = std::numeric_limits<S>::max())
+    {
+        if (outIm.w == 0 || outIm.h == 0)
+        {
+            outIm = Image<T>(im.w, im.h, im.c);
+        }
+
+        outCam = FindOptimalLinearCalibration(cam, im.w, im.h, outIm.w, outIm.h, xRadius, yRadius);
+        return UndistortImage(im, cam, outCam, outIm);
+    }
+
+
+    template <typename T, typename S>
+    bool ComputeStereoRectificationTransforms(
+        const Image<T>& im0,
+        const Camera<S>& cam0,
+        const Image<T>& im1,
+        const Camera<S>& cam1)
+    {
+        assert(im0.c == 1);
+        assert(im1.c == 1);
+        assert(cam0.model->Name() == "pinhole");
+        assert(cam1.model->Name() == "pinhole");
+
+        const SE3<S> cam1FromCam0 = cam1.Rt * cam0.Rt.Inverse();
+
+        Eigen::Matrix3<S> F;
+        Vec3<S> ve0, ve1;
+        ComputeEpipolesFromLinearCalibration(*cam0.model, *cam1.model, cam1FromCam0, F, ve0, ve1);
+
+        Eigen::Vector3<S> e0(ve0(0) / ve0(2), ve0(1) / ve0(2), S(1));
+        Eigen::Vector3<S> e1(ve1(0) / ve1(2), ve1(1) / ve1(2), S(1));
+        
+        // Planar rectification of Image 1 through a series of transformations
+        Eigen::Matrix3<S> T1;
+        T1 <<
+            S(1), S(0), S(-cam1.model->Param(PinholeModel<S>::CX)),
+            S(0), S(1), S(-cam1.model->Param(PinholeModel<S>::CY)),
+            S(0), S(0), S(1);
+
+        e1 = T1 * e1;
+
+        const S theta = -atan2(e1(1), e1(0));
+        Eigen::Matrix3<S> T2;
+        T2 <<
+            cos(theta), -sin(theta), S(0),
+            sin(theta),  cos(theta), S(0),
+            S(0), S(0), S(1);
+
+        e1 = T2 * e1;
+        Eigen::Matrix3<S> T3;
+        T3 <<
+                     S(1), S(0), S(0),
+                     S(0), S(1), S(0),
+            S(-1) / e1(0), S(0), S(1);
+        
+        e1 = T3 * e1;
+
+        const Eigen::Matrix3<S> Tcam1 = T3 * T2 * T1;
+
+        // Now, we can solve for a transformation of image 1
+        // of the following form:
+        //
+        //     Hom(a) = (I + e2*a^T)*Tcam1*M
+        //
+        // where M comes from F = SM after decomposing F so that
+        // S is a skew symmetric matrix.
+        Eigen::Matrix3<S> M;
+        DecomposeFundamentalIntoSM(F, M);
+
+        return true;
+    }
+
+    template <typename T, typename S>
+    Image<S> DepthFromStereoRectified(
+        const Image<T>& im0,
+        const CameraModel<S>& cam0,
+        const Image<T>& im1,
+        const CameraModel<S>& cam1,
+        const int windowRadius = 2,
+        const float maxDisparityPerc = .05f,
+        const bool refineSubpixel = true)
+    {
+        assert(im0.c == 1);
+        assert(im1.c == 1);
+        assert(cam0->model.Name() == "pinhole");
+        assert(cam1->model.Name() == "pinhole");
+
+        // Since the images are rectified, we only need to perform
+        // searches along their horizontal epipolar lines.
+        const int maxDisparity = int(round(im1.w * maxDisparity));
+        const int disparityRadius = (maxDisparity + 1) / 2;
+
+        // For each pixel, form a patch around it and search along the
+        // epipolar line to find a patch which matches most.
+        Image<S> depth, disparity;
+
+        for (int y = 0; y < im0.h; ++i)
+        {
+            const T* row0 = im0.row(y);
+            const T* row1 = im1.row(y);
+            for (int x = 0; x < im0.w; ++x, row++)
+            {
+                
+            }
+        }
+
+        return Image<S>();
+    }
+
+}

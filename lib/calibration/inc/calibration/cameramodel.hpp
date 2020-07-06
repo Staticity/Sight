@@ -2,6 +2,7 @@
 
 #include <string>
 #include <linear/vec.hpp>
+#include <algorithm>
 
 namespace sight
 {
@@ -31,8 +32,62 @@ namespace sight
         virtual std::string Name() const = 0;
         virtual CameraModel* Clone() const = 0;
 
-    protected:
-    
+        virtual S ComputeProjectiveRadius(
+            const float percentile = .9,
+            const S maxRadius = S(4.0)) const
+        {
+            // Generate a set of rays, symmetrically radiating out from
+            // [0, 0, 1] to see where unprojection begins to fail. We'll
+            // take the value which gives us at least `percentile` valid
+            // projections.
+            const int N = 90;
+            const double thetaStep = (2 * M_PI) / (N - 1);
+            const S maxRadiusSq = maxRadius * maxRadius;
+
+            // Determines how much fast we'll traverse across the plane
+            // at z=1. The bigger it is, the faster the search, but less
+            // accurate. We could do a binary search for arbitrary precision,
+            // but it's not gauranteed that the projection is valid
+            // and then strictly fails beyond that critical point.
+            const S metricStep = S(.1);
+            
+            S radii[N];
+
+            for (int i = 0; i < N; ++i)
+            {
+                const S theta = S(thetaStep * i);
+                const S dx = cos(theta) * metricStep;
+                const S dy = sin(theta) * metricStep;
+
+                S x = dx;
+                S y = dy;
+                const S z = S(1);
+                
+                S u, v;
+                S xz, yz; // unused
+                while (Project(x, y, z, u, v) && Unproject(u, v, xz, yz))
+                {
+                    x += dx;
+                    y += dy;
+
+                    // We've gone far enough
+                    if (x * x + y * y > maxRadiusSq)
+                    {
+                        break;
+                    }
+                }
+
+                // We remove one more step, since this is the failing step.
+                x -= dx;
+                y -= dy;
+                radii[i] = x * x + y * y;
+            }
+
+            std::sort(radii, radii + N);
+            const int idx = int(round((N - 1) * (1.0f - percentile)));
+            return sqrt(radii[idx]);
+        }
+
         virtual bool IterativeUnproject(S u, S v, S& xz, S& yz, const int maxIterations) const
         {
             // Assume xz and yz are properly initialized
