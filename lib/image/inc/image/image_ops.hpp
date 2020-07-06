@@ -34,7 +34,7 @@ namespace sight
     }
  
     template <typename Out, typename T, typename S = float>
-    inline Out BilinearInterpolate(const Image<T>& im, S x, S y, int ch = 1)
+    inline Out BilinearInterpolate(const Image<T>& im, S x, S y, int ch = 0)
     {
         const int x0 = int(floor(x));
         const int y0 = int(floor(y));

@@ -1,18 +1,25 @@
 #pragma once
 
+#include <random>
+#include <time.h>
+
 #include <Eigen/Eigen>
 
+#include <calibration/pinholemodel.hpp>
+#include <calibration/device.hpp>
 #include <image/image.hpp>
 #include <image/image_ops.hpp>
 #include <image/image_gen.hpp>
-#include <calibration/pinholemodel.hpp>
-#include <calibration/device.hpp>
+#include <geometric/homography_ops.hpp>
 
 namespace sight
 {
     template <typename S>
     void DecomposeFundamentalIntoSM(
         const Eigen::Matrix3<S>& F,
+        // Eigen::Matrix3<S>& S,
+        // This is the skew symmetric matrix of the left epipole.
+        // We ignore it for now.
         Eigen::Matrix3<S>& M)
     {
         const Eigen::JacobiSVD svd(F, Eigen::ComputeFullU | Eigen::ComputeFullV);
@@ -277,8 +284,10 @@ namespace sight
         return outCam;
     }
 
+
+
     template <typename T, typename S>
-    bool UndistortImage(
+    void UndistortImage(
         const Image<T>& im,
         const CameraModel<S>& cam,
         const PinholeModel<S>& newCam,
@@ -334,12 +343,10 @@ namespace sight
                 }
             }
         }
-
-        return true;
     }
 
     template <typename T, typename S>
-    bool UndistortImage(
+    void UndistortImage(
         const Image<T>& im,
         const CameraModel<S>& cam,
         Image<T>& outIm,
@@ -353,16 +360,73 @@ namespace sight
         }
 
         outCam = FindOptimalLinearCalibration(cam, im.w, im.h, outIm.w, outIm.h, xRadius, yRadius);
-        return UndistortImage(im, cam, outCam, outIm);
+        UndistortImage(im, cam, outCam, outIm);
+    }
+
+    template <typename T, typename S>
+    void RemapPerspectiveImage(
+        const Image<T>& im,
+        const Eigen::Matrix3<S>& H,
+        Image<T>& out)
+    {
+        // Determine the bounding box by warping the extremities
+        S minX = std::numeric_limits<S>::max();
+        S minY = std::numeric_limits<S>::max();
+        S maxX = std::numeric_limits<S>::min();
+        S maxY = std::numeric_limits<S>::min();
+
+        // Iterate over the corners to find the extrema
+        for (int i = 0; i < 4; ++i)
+        {
+            const int x = (i % 2) ? 0 : im.w;
+            const int y = (i / 2) ? 0 : im.h;
+
+            const Eigen::Vector2<S> uv = ApplyHomography(H, Eigen::Vector2<S>(x, y));
+            minX = std::min(uv[0], minX);
+            minY = std::min(uv[1], minY);
+            maxX = std::max(uv[0], maxX);
+            maxY = std::max(uv[1], maxY);
+        }
+
+        // Inverse warp into the original image to sample
+        const Eigen::Matrix3<S> Hinv = H.inverse();
+
+        const int w = int(ceil(maxX - minX));
+        const int h = int(ceil(maxY - minY));
+        out = Image<T>(w, h, im.c);
+
+        for (int i = 0; i < out.h; ++i)
+        {
+            T* dstRow = out.row(i);
+            for (int j = 0, k = 0; j < out.w; ++j)
+            {
+                const Eigen::Vector2<S> uvDst = Eigen::Vector2d(S(j), S(i));
+                const Eigen::Vector2<S> uvSrc = ApplyHomography(Hinv, uvDst);
+
+                // Skip pixels which are out of the image's bounds
+                if (uvSrc[0] < S(0) || uvSrc[0] >= out.w - 1 ||
+                    uvSrc[1] < S(0) || uvSrc[1] >= out.h - 1)
+                {
+                    continue;
+                }
+
+                for (int ch = 0; ch < out.c; ++ch, ++k)
+                {
+                    dstRow[k] = BilinearInterpolate<T, T, S>(im, uvSrc[0], uvSrc[1], ch);
+                }
+            }
+        }
     }
 
 
     template <typename T, typename S>
-    bool ComputeStereoRectificationTransforms(
+    void ComputeStereoRectificationTransforms(
         const Image<T>& im0,
         const Camera<S>& cam0,
         const Image<T>& im1,
-        const Camera<S>& cam1)
+        const Camera<S>& cam1,
+        Image<T>& rect0,
+        Image<T>& rect1) // todo: add inverse warp outputs
     {
         assert(im0.c == 1);
         assert(im1.c == 1);
@@ -403,19 +467,35 @@ namespace sight
         
         e1 = T3 * e1;
 
-        const Eigen::Matrix3<S> Tcam1 = T3 * T2 * T1;
+        const Eigen::Matrix3<S> H1 = T3 * T2 * T1;
 
         // Now, we can solve for a transformation of image 1
         // of the following form:
         //
-        //     Hom(a) = (I + e2*a^T)*Tcam1*M
+        //     H0 = Hom(a) = (I + e2*a^T)*H1*M
         //
         // where M comes from F = SM after decomposing F so that
-        // S is a skew symmetric matrix.
+        // S is a skew symmetric matrix -- and a is any vector
+        // for which Hom(a) is invertible.
         Eigen::Matrix3<S> M;
         DecomposeFundamentalIntoSM(F, M);
 
-        return true;
+        std::default_random_engine gen(uint32_t(time(0)));
+        std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+        // Choose an arbitary a. We can choose one which minimizes reprojection
+        // errors, but we'll make it simple.
+        Eigen::Matrix3<S> H0;
+        do
+        {
+            Eigen::Vector3<S> a(dist(gen), dist(gen), dist(gen));
+            H0 = (Eigen::Matrix3<S>::Identity() + e1 * a.transpose()) * H1 * M;
+        }
+        while (abs(H0.determinant()) < std::numeric_limits<S>::epsilon());
+
+        RemapPerspectiveImage(im0, H0, rect0);
+        RemapPerspectiveImage(im1, H1, rect1);
+
     }
 
     template <typename T, typename S>
