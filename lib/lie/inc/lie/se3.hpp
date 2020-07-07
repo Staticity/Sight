@@ -53,6 +53,11 @@ namespace sight
             return R * v + t;
         }
 
+        Vec3<S> Position() const
+        {
+            return -(R.Inverse() * t);
+        }
+
         SE3 Inverse() const
         {
             SE3 inv;

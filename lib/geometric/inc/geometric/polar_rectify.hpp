@@ -116,8 +116,13 @@ namespace sight
             theta0 = atan2(d0(1), d0(0));
             theta1 = atan2(d1(1), d1(0));
 
-            // Make sure that theta0 and theta1 are ordered
-            if (theta1 < theta0)
+            // Bring angles into the range [0, 2pi]
+            if (theta0 < S(0))
+            {
+                theta0 += 2 * M_PI;
+            }
+
+            if (theta1 < S(0))
             {
                 theta1 += 2 * M_PI;
             }
@@ -234,6 +239,22 @@ namespace sight
         return skew;
     }
 
+    template <typename S>
+    bool InBetweenAngles(const S t0, const S t1, S theta)
+    {
+        while (theta < t0)
+        {
+            theta += 2 * M_PI;
+        }
+
+        while (theta > t1)
+        {
+            theta -= 2 * M_PI;
+        }
+
+        return theta >= t0 && theta <= t1;
+    }
+
     template <typename T, typename S>
     void PolarRectifyImages(
         const Image<T>& im0,
@@ -275,8 +296,14 @@ namespace sight
         S tMin1, tMax1;
         GetPolarMinMaxAngles<S>(e1, im1.w, im1.h, tMin1, tMax1);
 
-        const S thetaMin = std::max(tMin0, tMin1);
-        const S thetaMax = std::min(tMax0, tMax1);
+        S thetaMin = std::max(tMin0, tMin1);
+        S thetaMax = std::min(tMax0, tMax1);
+
+        // Ensure thetaMax > thetaMin (should only run once)
+        while (thetaMax < thetaMin)
+        {
+            thetaMax += 2 * M_PI;
+        }
 
         S theta_left = thetaMin;
 
@@ -284,30 +311,10 @@ namespace sight
         GetImageBorderLines(border0, im0.w, im0.h);
         GetImageBorderLines(border1, im1.w, im1.h);
 
-        // Compute theta offset in the right-image.
-        S theta_offset;
-        {
-            // arbitrary constants
-            const S s = S(im0.w);
-            const S test_theta = (tMax0 + tMin0) / S(2);
-            const Vec3<S> v = { cos(test_theta), sin(test_theta), S(0) };
-
-            // Find the epipolar line corresponding to test_theta in the left & right image
-            const Eigen::Vector3d eLine0 = ToEigen(e0h.Cross(e0h + v * s));
-            const Eigen::Vector3d eLine1 = F * Skew(e0h) * eLine0;
-
-            // Ensure this is a right-epipolar line (passes through right-epipole)
-            assert(abs(eLine1.transpose() * ToEigen(e1h)) < std::numeric_limits<S>::epsilon());
-
-            theta_offset = S(0); // blegh.. TODO: Figure this out
-        }
-
-        // Ax + By + C = 0
-        //
-        // y = -A/B x - C/B
-
-        // This is not the correct dTheta
-        const int nThetas = 2 * (im0.w + im0.h);
+        // This is not the correct dTheta. Technically the
+        // maximum nThetas should be 2 * (w + h), but we leave
+        // this as is for performance reasons...
+        const int nThetas = (im0.w + im0.h);
         const S dTheta = (thetaMax - theta_left) / (nThetas - 1);
 
         std::vector<std::pair<S, S>> rho_starts;
@@ -326,8 +333,26 @@ namespace sight
             const Vec2<S> v0 = { cos(theta_left), sin(theta_left) };
             GetPolarMinMaxRho<S>(e0, v0, border0, im0.w, im0.h, rMin0, rMax0);
 
+            // Compute theta in the right-image.
+            //
+            // Find the epipolar line corresponding to test_theta in the left & right image
+            const S r = rMax0;
+            const Vec3<S> off = { r * v0(0), r * v0(1), S(0) };
+            const Eigen::Vector3d eLine0 = ToEigen(e0h.Cross(e0h + off));
+            const Eigen::Vector3d eLine1 = F * Skew(e0h) * eLine0;
+
+            // Ensure this is a right-epipolar line (passes through right-epipole)
+            assert(abs(eLine1.transpose() * ToEigen(e1h)) < std::numeric_limits<S>::epsilon());
+
+            const S c = eLine1(2);
+            const S a = eLine1(0) / c;
+            const S b = eLine1(1) / c;
+
+            // TODO:
+            // This has a 50% chance of being right... If not, then the angle in the opposite
+            // direction is the correct one.
             S rMin1, rMax1;
-            const S theta_right = theta_left + theta_offset;
+            const S theta_right = atan2(-a, b);
             const Vec2<S> v1 = { cos(theta_right), sin(theta_right) };
             GetPolarMinMaxRho<S>(e1, v1, border1, im1.w, im1.h, rMin1, rMax1);
 
@@ -339,24 +364,8 @@ namespace sight
             v_pairs.push_back({v0, v1});
             
             // TODO: Compute proper dTheta
-            // const S dTheta = S(0);
             theta_left += dTheta;
-
-            // if (i % 100 == 0)
-            // {
-            //     const S r0 = rMax0;//(rMax0 + rMin0) / 2;
-            //     const S r1 = rMax1;//(rMax1 + rMin1) / 2;
-            //     cv::Scalar color(rand() % 255, rand() % 255, rand() % 255);
-            //     cv::line(mat0, cv::Point2d(e0(0), e0(1)), cv::Point2d(e0(0) + v0(0) * r0, e0(1) + v0(1) * r0), color);// cv::Scalar(0, 255, 0));
-            //     cv::line(mat1, cv::Point2d(e1(0), e1(1)), cv::Point2d(e1(0) + v1(0) * r1, e1(1) + v1(1) * r1), color);// cv::Scalar(0, 0, 255));
-            // }
         }
-
-        // cv::imshow("Debug0", mat0);
-        // cv::imshow("Debug1", mat1);
-        // cv::imwrite("PolarDebug0.png", mat0);
-        // cv::imwrite("PolarDebug1.png", mat1);
-        // cv::waitKey(0);
 
         const int nRhos = int(ceil(rhoMaxRange));
 
