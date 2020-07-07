@@ -3,9 +3,10 @@
 #include <chrono>
 #include <utils/timer.hpp>
 
-#include <geometric/rectify.hpp>
 #include <calibration/equidistantmodel.hpp>
 #include <calibration/radial4model.hpp>
+#include <geometric/rectify.hpp>
+#include <geometric/polar_rectify.hpp>
 
 #include <opencv2/opencv.hpp>
 
@@ -82,7 +83,9 @@ int main(int argc, char** argv)
     cam0.CopyCamera(K0);
     cam1.CopyCamera(K1);
     Image<uint8_t> r0, r1;
-    ComputeStereoRectificationTransforms(u0, cam0, u1, cam1, r0, r1);
+    PolarRectifyImages(u0, K0, u1, K1, cam1.Rt * cam0.Rt.Inverse(), r0, r1);
+    // ComputeStereoRectificationTransforms(u0, cam0, u1, cam1, r0, r1);
+
     std::cout << t.DurationAndReset() << " seconds [stereo]" << std::endl;
 
     const auto mu0 = Resize<uint8_t>(u0, .5f, .5f);
@@ -91,8 +94,10 @@ int main(int argc, char** argv)
 
     cv::imshow("Undistorted 0", mu0.ToOpenCV());
     cv::imshow("Undistorted 1", mu1.ToOpenCV());
-    cv::imshow("Rect 0", r1.ToOpenCV());
+    cv::imshow("Rect 0", r0.ToOpenCV());
     cv::imshow("Rect 1", r1.ToOpenCV());
     cv::imshow("Original", im02.ToOpenCV());
+    cv::imwrite("PolarRectified0.png", r0.ToOpenCV());
+    cv::imwrite("PolarRectified1.png", r1.ToOpenCV());
     cv::waitKey(0);
 }

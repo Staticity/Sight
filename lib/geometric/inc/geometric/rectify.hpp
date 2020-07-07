@@ -178,7 +178,7 @@ namespace sight
         Vec3<S>& e0,
         Vec3<S>& e1)
     {
-        ComputeEpipolesFromCalibration(*cam0.model, *cam1.model, cam1.Rt * .Rt.Inverse());
+        ComputeEpipolesFromCalibration(*cam0.model, *cam1.model, cam1.Rt * cam0.Rt.Inverse());
     }
 
     template <typename S>
@@ -283,8 +283,6 @@ namespace sight
         outCam.Param(PinholeModel<S>::SKEW) = S(0);
         return outCam;
     }
-
-
 
     template <typename T, typename S>
     void UndistortImage(
@@ -416,86 +414,6 @@ namespace sight
                 }
             }
         }
-    }
-
-
-    template <typename T, typename S>
-    void ComputeStereoRectificationTransforms(
-        const Image<T>& im0,
-        const Camera<S>& cam0,
-        const Image<T>& im1,
-        const Camera<S>& cam1,
-        Image<T>& rect0,
-        Image<T>& rect1) // todo: add inverse warp outputs
-    {
-        assert(im0.c == 1);
-        assert(im1.c == 1);
-        assert(cam0.model->Name() == "pinhole");
-        assert(cam1.model->Name() == "pinhole");
-
-        const SE3<S> cam1FromCam0 = cam1.Rt * cam0.Rt.Inverse();
-
-        Eigen::Matrix3<S> F;
-        Vec3<S> ve0, ve1;
-        ComputeEpipolesFromLinearCalibration(*cam0.model, *cam1.model, cam1FromCam0, F, ve0, ve1);
-
-        Eigen::Vector3<S> e0(ve0(0) / ve0(2), ve0(1) / ve0(2), S(1));
-        Eigen::Vector3<S> e1(ve1(0) / ve1(2), ve1(1) / ve1(2), S(1));
-        
-        // Planar rectification of Image 1 through a series of transformations
-        Eigen::Matrix3<S> T1;
-        T1 <<
-            S(1), S(0), S(-cam1.model->Param(PinholeModel<S>::CX)),
-            S(0), S(1), S(-cam1.model->Param(PinholeModel<S>::CY)),
-            S(0), S(0), S(1);
-
-        e1 = T1 * e1;
-
-        const S theta = -atan2(e1(1), e1(0));
-        Eigen::Matrix3<S> T2;
-        T2 <<
-            cos(theta), -sin(theta), S(0),
-            sin(theta),  cos(theta), S(0),
-            S(0), S(0), S(1);
-
-        e1 = T2 * e1;
-        Eigen::Matrix3<S> T3;
-        T3 <<
-                     S(1), S(0), S(0),
-                     S(0), S(1), S(0),
-            S(-1) / e1(0), S(0), S(1);
-        
-        e1 = T3 * e1;
-
-        const Eigen::Matrix3<S> H1 = T3 * T2 * T1;
-
-        // Now, we can solve for a transformation of image 1
-        // of the following form:
-        //
-        //     H0 = Hom(a) = (I + e2*a^T)*H1*M
-        //
-        // where M comes from F = SM after decomposing F so that
-        // S is a skew symmetric matrix -- and a is any vector
-        // for which Hom(a) is invertible.
-        Eigen::Matrix3<S> M;
-        DecomposeFundamentalIntoSM(F, M);
-
-        std::default_random_engine gen(uint32_t(time(0)));
-        std::uniform_real_distribution<double> dist(0.0, 1.0);
-
-        // Choose an arbitary a. We can choose one which minimizes reprojection
-        // errors, but we'll make it simple.
-        Eigen::Matrix3<S> H0;
-        do
-        {
-            Eigen::Vector3<S> a(dist(gen), dist(gen), dist(gen));
-            H0 = (Eigen::Matrix3<S>::Identity() + e1 * a.transpose()) * H1 * M;
-        }
-        while (abs(H0.determinant()) < std::numeric_limits<S>::epsilon());
-
-        RemapPerspectiveImage(im0, H0, rect0);
-        RemapPerspectiveImage(im1, H1, rect1);
-
     }
 
     template <typename T, typename S>

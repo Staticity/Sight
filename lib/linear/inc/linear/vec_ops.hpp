@@ -1,5 +1,7 @@
 #pragma once
 
+#include <linear/vec.hpp>
+
 namespace sight
 {
     template <int N, typename S>

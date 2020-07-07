@@ -156,4 +156,10 @@ namespace sight
 
         std::array<S, N> v;
     };
+
+    template <typename S, int N>
+    inline Vec<S, N> operator*(S s, const Vec<S, N>& v)
+    {
+        return v * s;
+    }
 }

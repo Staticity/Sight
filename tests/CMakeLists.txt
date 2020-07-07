@@ -6,6 +6,7 @@ add_executable(tests
     test.cpp
     calibration/camera_test.cpp
     geometric/homography_test.cpp
+    # geometric/polar_rectify_test.cpp # Tested functions moved to anonymous namespace
     geometric/triangulation_test.cpp
     features/fast_test.cpp
     features/orb_test.cpp
