@@ -1,8 +1,16 @@
 #pragma once
 
+#include <estimation/quadratic.hpp>
+
 namespace sight
 {
-    int FiniteHarrisPadding(int k)
+    enum ScoreHeuristic
+    {
+        HARRIS,
+        SHI_TOMASI
+    };
+
+    int FiniteCornerPadding(int k)
     {
         // Normally, you only require
         // a block size of 2k + 1, but
@@ -13,15 +21,16 @@ namespace sight
     }
     
     template <typename T>
-    float FiniteHarrisScore(
+    float FiniteCornerScore(
         const Image<T>& im,
         int x,
         int y,
         int r,
-        float constantK)
+        // float constantK,
+        ScoreHeuristic scoreType = SHI_TOMASI)
     {
         assert(im.c == 1);
-        assert(constantK >= .04f && constantK <= .06f);
+        // assert(constantK >= .04f && constantK <= .06f);
 
         float Ixx = 0.f;
         float Iyy = 0.f;
@@ -65,9 +74,25 @@ namespace sight
         //
         // e1 * e2 is simply the determinant of the matrix, while
         // we can say the same about e1 + e2 as the trace.
+
         const float det = Ixx * Iyy - Ixy * Ixy;
         const float trace = Ixx + Iyy;
 
-        return det - constantK * (trace * trace);
+        if (scoreType == HARRIS)
+        {
+            const float constantK = .04f;
+            return det - constantK * (trace * trace);
+        }
+        else if (scoreType == SHI_TOMASI)
+        {
+            Quadratic<float> q(1.f, -trace, det);
+            float roots[2];
+            const int nRoots = q.RealRoots(roots);
+            return nRoots == 0 ? 0.f : roots[0];
+        }
+        else
+        {
+            return 0.f;
+        }
     }
 }

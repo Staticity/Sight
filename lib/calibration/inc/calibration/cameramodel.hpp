@@ -16,7 +16,29 @@ namespace sight
     public:
         
         virtual bool Project(S x, S y, S z, S& u, S& v, S* Jp = 0, S* Jxyz = 0) const = 0;
+
+        virtual void Project(const Vec2<S>& xzyz, Vec2<S>& uv, S* Jp = 0, S* Jxyz = 0)
+        {
+            Project(xzyz(0), xzyz(1), S(1), uv(0), uv(1), Jp, Jxyz);
+        }
+
+        virtual void Project(const Vec3<S>& xyz, Vec2<S>& uv, S* Jp = 0, S* Jxyz = 0)
+        {
+            Project(xyz(0), xyz(1), xyz(2), uv(0), uv(1), Jp, Jxyz);
+        }
+
         virtual bool Unproject(S u, S v, S& xz, S& yz) const = 0;
+        
+        virtual void Unproject(const Vec2<S>& uv, Vec2<S>& xzyz)
+        {
+            Unproject(uv(0), uv(1), xzyz(0), xzyz(1));
+        }
+        
+        virtual void Unproject(const Vec2<S>& uv, Vec3<S>& xzyz)
+        {
+            Unproject(uv(0), uv(1), xzyz(0), xzyz(1));
+            xzyz(2) = S(1);
+        }
 
         virtual bool JxyzToJxzyz(S z, const S* Jxyz, S* Jxzyz) const
         {

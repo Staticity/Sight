@@ -12,6 +12,13 @@ namespace sight
         Quadratic()
         {}
 
+        Quadratic(S a, S b, S c)
+            : a(a)
+            , b(b)
+            , c(d)
+        {
+        }
+
         Quadratic(
             S x0, S y0,
             S x1, S y1,
@@ -34,6 +41,11 @@ namespace sight
             return a * x * x + b * x + c;
         }
 
+        bool IsQuadratic() const
+        {
+            return abs(a) > std::numeric_limits<S>::epsilon();
+        }
+
         bool GetExtremum(S& x) const
         {
             // Find where the derivative of the expression is equal to 0.
@@ -41,7 +53,7 @@ namespace sight
             //     d/dx(ax^2 + bx + c) = 0
             //
             //     2ax + b = 0
-            if (abs(a) < std::numeric_limits<S>::epsilon())
+            if (IsQuadratic())
             {
                 return false;
             }
@@ -58,6 +70,54 @@ namespace sight
         bool HasMinimum() const
         {
             return a < -std::numeric_limits<S>::epsilon();
+        }
+
+        int RealRoots(S orderedRoots[2]) const
+        {
+            // Need to solve ax^2 + bx + c = 0, for when
+            // x is real.
+            //
+            //
+            if (IsQuadratic())
+            {
+                S det = b * b - S(4) * a * c;
+                if (det < S(0))
+                {
+                    return 0;
+                }
+                
+                const S twoA = S(2) * a;
+                if (det == S(0))
+                {
+                    orderedRoots[0] = -b / twoA;
+                    return 1;
+                }
+                
+                S off = sqrt(det);
+                orderedRoots[0] = (-b - off) / twoA;
+                orderedRoots[1] = (-b + off) / twoA;
+                return 1;
+            }
+            else
+            {
+                // Is this linear?
+                if (abs(b) > std::numeric_limits<S>::epsilon())
+                {
+                    // Solve for bx + c = 0
+                    orderedRoots[0] = -c / b;
+                    return 1;
+                }
+
+                // Constant is equal to 0?
+                if (abs(c) < std::numeric_limits<S>::epsilon())
+                {
+                    // Anything is a root
+                    orderedRoots[0] = 0;
+                    return 1;
+                }
+
+                return 0;
+            }
         }
 
         static void Fit(
@@ -102,6 +162,7 @@ namespace sight
             c = x(2);
         }
 
+        bool isQuadratic;
         S a, b, c;
     };
 }

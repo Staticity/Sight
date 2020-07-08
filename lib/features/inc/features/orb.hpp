@@ -200,8 +200,8 @@ namespace sight
             const int cy = int(round(feats[i].y));
 
             // Compute the harris corner score for the corner's weight
-            const float harrisK = 0.04f; // Harris corner constant. Usually chosen between [.04, .06]
-            descs[i].feat.response = FiniteHarrisScore(im, cx, cy, harrisR, harrisK);
+            // const float harrisK = 0.04f; // Harris corner constant. Usually chosen between [.04, .06]
+            descs[i].feat.response = FiniteCornerScore(im, cx, cy, harrisR, HARRIS);
 
             // We can normalize the responses beteween 0 and 1
             descs[i].feat.response *= scalesq;
