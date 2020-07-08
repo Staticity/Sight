@@ -1,3 +1,5 @@
+#pragma once
+
 #include <lie/so3.hpp>
 #include <linear/vec.hpp>
 

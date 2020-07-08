@@ -7,13 +7,27 @@
 
 #include <calibration/pinholemodel.hpp>
 #include <calibration/device.hpp>
+#include <estimation/quadratic_spline.hpp>
 #include <image/image.hpp>
 #include <image/image_ops.hpp>
 #include <image/image_gen.hpp>
 #include <geometric/homography_ops.hpp>
+#include <geometric/triangulation.hpp>
 
 namespace sight
 {
+    template <typename S>
+    class IInverseWarp
+    {
+    public:
+
+        virtual bool InterpolateUV(S x, S y, S& u, S& v) const = 0;
+        
+        virtual void GetUV(int x, int y, S& u, S& v) const = 0;
+
+        virtual void GetUVBounds(int& w, int& h) const = 0;
+    };
+
     template <typename S>
     void DecomposeFundamentalIntoSM(
         const Eigen::Matrix3<S>& F,
@@ -417,40 +431,178 @@ namespace sight
     }
 
     template <typename T, typename S>
-    Image<S> DepthFromStereoRectified(
-        const Image<T>& im0,
-        const CameraModel<S>& cam0,
-        const Image<T>& im1,
-        const CameraModel<S>& cam1,
+    Image<S> DisparityFromStereoRectified(
+        const Image<T>& rectified0,
+        const Image<T>& rectified1,
         const int windowRadius = 2,
-        const float maxDisparityPerc = .05f,
+        const float maxDisparityPerc = .01f,
         const bool refineSubpixel = true)
     {
-        assert(im0.c == 1);
-        assert(im1.c == 1);
-        assert(cam0->model.Name() == "pinhole");
-        assert(cam1->model.Name() == "pinhole");
+        assert(rectified0.c == 1);
+        assert(rectified1.c == 1);
+
+        const auto& rec0 = rectified0;
+        const auto& rec1 = rectified1;
 
         // Since the images are rectified, we only need to perform
         // searches along their horizontal epipolar lines.
-        const int maxDisparity = int(round(im1.w * maxDisparity));
+        const int maxDisparity = int(round(rec0.w * maxDisparityPerc));
         const int disparityRadius = (maxDisparity + 1) / 2;
+
+        const int wr = windowRadius;
+        const int dr = disparityRadius;
 
         // For each pixel, form a patch around it and search along the
         // epipolar line to find a patch which matches most.
-        Image<S> depth, disparity;
+        Image<S> disparity(rec0.w, rec0.h);
 
-        for (int y = 0; y < im0.h; ++i)
+        const int size = wr * 2 + 1;
+        std::vector<S> ssds;
+        ssds.reserve(size * size);
+
+        for (int y = wr; y < rec0.h - wr; ++y)
         {
-            const T* row0 = im0.row(y);
-            const T* row1 = im1.row(y);
-            for (int x = 0; x < im0.w; ++x, row++)
+            const T* row0 = rec0.row(y);
+            const T* row1 = rec1.row(y);
+            for (int x = wr; x < rec0.w - wr; ++x)
             {
+                // Compare this pixel's (x, y) patch against a set of
+                // patches in the other image via SSD.
+                const int start = std::max(0, x - disparityRadius);
+                const int end = std::min(rec0.w - wr - 1, x + disparityRadius);
+
+                S d = std::numeric_limits<S>::max();
+                S minSsd = std::numeric_limits<S>::max();
                 
+                int bestIdx = -1;
+                ssds.clear();
+
+                const T* window0 = row0 + -wr * rec0.row_step + x;
+
+                // For every patch center in image 1...
+                for (int xp = start; xp <= end; ++xp)
+                {
+                    S ssd = S(0);
+
+                    const T* win0 = row1 + -wr * rec1.row_step + xp;
+                    const T* win1 = row1 + -wr * rec1.row_step + xp;
+
+                    // For every pixel in that patch...
+                    for (int i = -wr; i <= wr; ++i)
+                    {
+                        for (int j = -wr; j <= wr; ++j)
+                        {
+                            // Assuming there's more than 1 channel...
+                            // const S err =
+                            //     row0[i * rec0.row_step + (x + j) * rec0.col_step] -
+                            //     row1[i * rec1.row_step + (xp + j) * rec1.col_step];
+
+                            // const S err =
+                            //     row0[i * rec0.row_step + (x + j)] -
+                            //     row1[i * rec1.row_step + (xp + j)];
+
+                            const S err = win0[j] - win1[j];
+                            ssd += err * err;
+                        }
+
+                        win0 += rec0.row_step;
+                        win1 += rec1.row_step;
+                    }
+
+                    if (refineSubpixel)
+                    {
+                        // spline.AddPoint(xp, ssd);
+                        ssds.push_back(ssd);
+                    }
+
+                    if (ssd < minSsd)
+                    {
+                        minSsd = ssd;
+                        d = xp;
+                        bestIdx = xp - start;
+                    }
+                }
+
+                if (refineSubpixel && bestIdx > 0 && bestIdx + 1 < ssds.size())
+                {
+                    const int i = bestIdx;
+                    Quadratic<S> quad(d - 1, ssds[i - 1], d, ssds[i], d + 1, ssds[i + 1]);
+                    quad.GetExtremum(d);
+                }
+
+                disparity(y, x) = S(d - x);
             }
         }
 
-        return Image<S>();
+        return disparity;
     }
 
+    template <typename S>
+    Image<S> DepthFromDisparity(
+        const Image<S>& disparity,
+        const CameraModel<S>& pinhole0,
+        const IInverseWarp<S>& invWarp0,
+        const CameraModel<S>& pinhole1,
+        const IInverseWarp<S>& invWarp1,
+        const SE3<S>& cam1FromCam0)
+    {
+        assert(pinhole0.Name() == "pinhole");
+        assert(pinhole1.Name() == "pinhole");
+
+        const SE3<S> cam0FromCam1 = cam1FromCam0.Inverse();
+
+        int w0, h0;
+        invWarp0.GetUVBounds(w0, h0);
+
+        int w1, h1;
+        invWarp1.GetUVBounds(w1, h1);
+        Image<S> depth(w0, h0, 1);
+
+        for (int i = 0; i < disparity.h; ++i)
+        {
+            for (int j = 0; j < disparity.w; ++j)
+            {
+                S d = disparity(i, j);
+                
+                S u0, v0;
+                invWarp0.GetUV(j, i, u0, v0);
+
+                if (u0 < S(0) || u0 + 1 >= w0 || v0 < S(0) || v0 + 1 >= h0)
+                {
+                    continue;
+                }
+
+                S u1, v1;
+                invWarp1.InterpolateUV(j + d, i, u1, v1);
+
+                if (u1 < S(0) || u1 + 1 >= w1 || v1 < S(0) || v1 + 1 >= h1)
+                {
+                    continue;
+                }
+
+                // Calibrations are for normalized coordinates
+                u0 /= S(w0);
+                v0 /= S(h0);
+                u1 /= S(w1);
+                v1 /= S(h1);
+
+                Vec3<S> ray0;
+                pinhole0.Unproject(u0, v0, ray0(0), ray0(1));
+                ray0(2) = S(1);
+
+                Vec3<S> ray1;
+                pinhole1.Unproject(u1, v1, ray1(0), ray1(1));
+                ray1(2) = S(1);
+
+                Vec3<S> point;
+                if (FindRayIntersection<S>(ray0, ray1, cam0FromCam1.t, point))
+                {
+                    // Store the z-value
+                    depth(int(round(u0)), int(round(v0))) = point(2);
+                }
+            }
+        }
+
+        return depth;
+    }
 }

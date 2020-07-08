@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(geometric)
+project(estimation)
 
 add_library(${PROJECT_NAME} INTERFACE)
 
@@ -17,7 +17,6 @@ target_link_libraries(
     ${PROJECT_NAME}
     INTERFACE
     calibration
-    estimation
     lie
     linear
     utils)

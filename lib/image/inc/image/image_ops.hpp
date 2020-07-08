@@ -15,6 +15,23 @@ namespace sight
         return static_cast<Out>((x + .5f) * s - .5f);
     }
 
+    template <typename T>
+    void MinMax(Image<T>& im, T& minV, T& maxV, int ch = 0)
+    {
+        minV = std::numeric_limits<T>::max();
+        maxV = std::numeric_limits<T>::min();
+
+        for (int i = 0; i < im.h; ++i)
+        {
+            T* row = im.row(i);
+            for (int j = 0, k = ch; j < im.w; ++j, k += im.col_step)
+            {
+                minV = std::min(minV, row[k]);
+                maxV = std::max(maxV, row[k]);
+            }
+        }
+    }
+
     template <typename Out, typename T, typename S = float>
     inline Out BilinearInterpolate(
         const T* ptr,

@@ -73,18 +73,30 @@ int main(int argc, char** argv)
         }
     };
 
+    // Undistort the images and retrieve the new, associated pinhole models
     Image<uint8_t> u0, u1;
     PinholeModel<S> K0, K1;
     const S radius0 = cam0.model->ComputeProjectiveRadius();
     UndistortImage(im0, *cam0.model, u0, K0, radius0, radius0);
     UndistortImage(im1, *cam1.model, u1, K1, radius0, radius0);
 
-    // for now do the silly thing
-    cam0.CopyCamera(K0);
-    cam1.CopyCamera(K1);
+    // After distortion, rectify the images using Pollefeys' polar coordinate transformation
     Image<uint8_t> r0, r1;
-    PolarRectifyImages(u0, K0, u1, K1, cam1.Rt * cam0.Rt.Inverse(), r0, r1);
-    // ComputeStereoRectificationTransforms(u0, cam0, u1, cam1, r0, r1);
+    InversePolarWarp<S> iw0, iw1;
+    PolarRectifyImages(u0, K0, u1, K1, cam1.Rt * cam0.Rt.Inverse(), r0, iw0, r1, iw1);
+    Image<S> disparity = DisparityFromStereoRectified<uint8_t, S>(r0, r1);
+    Image<S> depth = DepthFromDisparity(disparity, K0, iw0, K1, iw1, cam1.Rt * cam0.Rt.Inverse());
+
+    S minV, maxV;
+    MinMax(disparity, minV, maxV);
+    for (int i = 0; i < disparity.h; ++i)
+        for (int j = 0; j < disparity.w; ++j)
+            disparity(i, j) = (disparity(i, j) - minV) / (maxV - minV) * S(255);
+
+    MinMax(depth, minV, maxV);
+    for (int i = 0; i < depth.h; ++i)
+        for (int j = 0; j < depth.w; ++j)
+            depth(i, j) = (depth(i, j) - minV) / (maxV - minV) * S(255);
 
     std::cout << t.DurationAndReset() << " seconds [stereo]" << std::endl;
 
@@ -96,6 +108,10 @@ int main(int argc, char** argv)
     cv::imshow("Undistorted 1", mu1.ToOpenCV());
     cv::imshow("Rect 0", r0.ToOpenCV());
     cv::imshow("Rect 1", r1.ToOpenCV());
+    cv::imshow("Disparity", disparity.ToOpenCV());
+    cv::imwrite("Disparity.png", disparity.ToOpenCV());
+    cv::imshow("Depth", depth.ToOpenCV());
+    cv::imwrite("Depth.png", depth.ToOpenCV());
     cv::imshow("Original", im02.ToOpenCV());
     cv::imwrite("PolarRectified0.png", r0.ToOpenCV());
     cv::imwrite("PolarRectified1.png", r1.ToOpenCV());

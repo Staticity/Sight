@@ -8,6 +8,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 add_subdirectory(calibration)
+add_subdirectory(estimation)
 add_subdirectory(features)
 add_subdirectory(geometric)
 add_subdirectory(image)
