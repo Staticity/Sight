@@ -12,3 +12,10 @@ target_include_directories(
     ${PROJECT_NAME}
     INTERFACE
     ${PROJECT_SOURCE_DIR}/inc)
+
+    
+target_link_libraries(
+    ${PROJECT_NAME}
+    INTERFACE
+    linear)
+

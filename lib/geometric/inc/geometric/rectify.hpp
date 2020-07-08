@@ -435,7 +435,7 @@ namespace sight
         const Image<T>& rectified0,
         const Image<T>& rectified1,
         const int windowRadius = 2,
-        const float maxDisparityPerc = .01f,
+        const float maxDisparityPerc = .05f,
         const bool refineSubpixel = true)
     {
         assert(rectified0.c == 1);
@@ -544,7 +544,8 @@ namespace sight
         const IInverseWarp<S>& invWarp0,
         const CameraModel<S>& pinhole1,
         const IInverseWarp<S>& invWarp1,
-        const SE3<S>& cam1FromCam0)
+        const SE3<S>& cam1FromCam0,
+        std::vector<Vec3<S>>* pPointCloud = 0)
     {
         assert(pinhole0.Name() == "pinhole");
         assert(pinhole1.Name() == "pinhole");
@@ -557,6 +558,11 @@ namespace sight
         int w1, h1;
         invWarp1.GetUVBounds(w1, h1);
         Image<S> depth(w0, h0, 1);
+
+        if (pPointCloud != nullptr)
+        {
+            pPointCloud->reserve(disparity.w * disparity.h);
+        }
 
         for (int i = 0; i < disparity.h; ++i)
         {
@@ -598,6 +604,7 @@ namespace sight
                 if (FindRayIntersection<S>(ray0, ray1, cam0FromCam1.t, point))
                 {
                     // Store the z-value
+                    pPointCloud->push_back(point);
                     depth(int(round(u0)), int(round(v0))) = point(2);
                 }
             }

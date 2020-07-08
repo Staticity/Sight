@@ -1,12 +1,13 @@
 #include <iostream>
 #include <filesystem>
 #include <chrono>
-#include <utils/timer.hpp>
 
 #include <calibration/equidistantmodel.hpp>
 #include <calibration/radial4model.hpp>
 #include <geometric/rectify.hpp>
 #include <geometric/polar_rectify.hpp>
+#include <utils/ply_helpers.hpp>
+#include <utils/timer.hpp>
 
 #include <opencv2/opencv.hpp>
 
@@ -85,7 +86,10 @@ int main(int argc, char** argv)
     InversePolarWarp<S> iw0, iw1;
     PolarRectifyImages(u0, K0, u1, K1, cam1.Rt * cam0.Rt.Inverse(), r0, iw0, r1, iw1);
     Image<S> disparity = DisparityFromStereoRectified<uint8_t, S>(r0, r1);
-    Image<S> depth = DepthFromDisparity(disparity, K0, iw0, K1, iw1, cam1.Rt * cam0.Rt.Inverse());
+
+    std::vector<Vec3<S>> points;
+    Image<S> depth = DepthFromDisparity(disparity, K0, iw0, K1, iw1, cam1.Rt * cam0.Rt.Inverse(), &points);
+    WritePlyPointCloud("points.ply", points);    
 
     S minV, maxV;
     MinMax(disparity, minV, maxV);
