@@ -24,6 +24,7 @@ namespace sight
         }
 
         // As I change z, how will the uv change?
+        
         S Jxyz[6];
         Vec2<S> uv_unused;
         cam0.model->Project(ray0, uv_unused, nullptr, Jxyz);

@@ -15,7 +15,7 @@ namespace sight
         Quadratic(S a, S b, S c)
             : a(a)
             , b(b)
-            , c(d)
+            , c(c)
         {
         }
 

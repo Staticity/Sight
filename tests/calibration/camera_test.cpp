@@ -5,6 +5,7 @@
 #include <calibration/equidistantmodel.hpp>
 #include <calibration/pinholemodel.hpp>
 #include <calibration/radial4model.hpp>
+#include <calibration/radialtanmodel.hpp>
 #include <linear/vec.hpp>
 
 TEST_CASE("Test Pinhole")
@@ -40,6 +41,27 @@ TEST_CASE("Test Equidistant")
         S(-0.010816440029919381),
         S(0.0059427817694127560),
         S(-0.0016622846678576431));
+
+    TestCamera(cam);
+}
+
+TEST_CASE("Test RadialTan")
+{
+    using namespace sight;
+    using S = double;
+    const RadialTanModel<S> cam(
+        S(935.1344941116828),
+        S(931.4115487638016),
+        S(639.5005137221706),
+        S(338.0236559548098),
+        S(-.001),
+        S(.001),
+        S(.002),
+        S(.003),
+        S(.004),
+        S(.005),
+        S(.006),
+        S(.007));
 
     TestCamera(cam);
 }

@@ -36,7 +36,7 @@ namespace sight
         bool Project(
             S x, S y, S z,
             S& u, S& v,
-            S* Jp = nulltpr,
+            S* Jp = nullptr,
             S* Jxyz = nullptr) const override
         {
             // [fx sk cx] [x]   [fx*x + sk*y + cx]

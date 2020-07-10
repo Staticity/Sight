@@ -43,7 +43,11 @@ namespace sight
             p[K4] = k4;
         }
 
-        bool Project(S x, S y, S z, S& u, S& v, S* Jp = nullptr, S* Jxyz = nullptr) const override
+        bool Project(
+            S x, S y, S z,
+            S& u, S& v,
+            S* Jp = nullptr,
+            S* Jxyz = nullptr) const override
         {
             const S invz = S(1) / z;
             const S xp = x * invz;
