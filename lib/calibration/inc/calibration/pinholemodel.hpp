@@ -6,7 +6,7 @@
 namespace sight
 {
     template <typename S>
-    class PinholeModel : public CameraModel<S>
+    class PinholeModel : public ICameraModel<S>
     {
     public:
         enum
@@ -127,9 +127,9 @@ namespace sight
         static std::string ModelName() { return "pinhole"; }
         inline std::string Name() const override { return ModelName(); }
 
-        std::unique_ptr<CameraModel<S>> Clone() const override
+        std::unique_ptr<ICameraModel<S>> Clone() const override
         {
-            std::unique_ptr<CameraModel<S>> clone(new PinholeModel<S>());
+            std::unique_ptr<ICameraModel<S>> clone(new PinholeModel<S>());
             clone->LoadModel(*this);
             return clone;
         }

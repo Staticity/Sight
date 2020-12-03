@@ -7,13 +7,13 @@
     template <typename S> \
     struct convert<Model>\
     {\
-        static Node encode(const sight::CameraModel<S>& model)\
+        static Node encode(const sight::ICameraModel<S>& model)\
         {\
-            return convert<sight::CameraModel<S>>::encode(model);\
+            return convert<sight::ICameraModel<S>>::encode(model);\
         }\
-        static bool decode(const Node& node, sight::CameraModel<S>& outModel)\
+        static bool decode(const Node& node, sight::ICameraModel<S>& model)\
         {\
-        return convert<sight::CameraModel<S>>::decode(node, outModel);\
+        return convert<sight::ICameraModel<S>>::decode(node, model);\
         }\
     };\
 
@@ -22,6 +22,19 @@ namespace YAML
     template <typename S>
     struct convert<sight::CameraModel<S>>
     {
+        static bool ValidateFields(const Node& node)
+        {
+            std::vector<std::string> fields = { "name", "params" };
+            for (const auto& field : fields)
+            {
+                if (!node[field].IsDefined())
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         static Node encode(const sight::CameraModel<S>& model)
         {
             std::vector<S> params(model.NumParams());
@@ -36,20 +49,7 @@ namespace YAML
             return node;
         }
 
-        static bool ValidateFields(const Node& node)
-        {
-            std::vector<std::string> fields = { "name", "params" };
-            for (const auto& field : fields)
-            {
-                if (!node[field].IsDefined())
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        static bool decode(const Node& node, sight::CameraModel<S>& outModel)
+        static bool decode(const Node& node, sight::CameraModel<S>& model)
         {
             if (!ValidateFields(node))
             {
@@ -61,28 +61,35 @@ namespace YAML
 
             // Ensure that our YAML file is up to date the
             // camera model factory.
-            auto model = sight::CreateCameraModel(name);
-            if (model->Name() != rhs.Name() ||
-                params.size() != model->NumParams())
+            model = sight::CreateCameraModel<S>(name);
+            if (params.size() != model.NumParams())
             {
                 return false;
             }
 
-            // Instead of loading directly into the output model,
-            // load into the newly created model.
-            for (int i = 0; i < model->NumParams(); ++i)
+            // Load each parameter into the model
+            for (int i = 0; i < model.NumParams(); ++i)
             {
-                model->Param(i) = params[i];
+                model.Param(i) = params[i];
             }
-
-            outModel.LoadModel(*model);
 
             return true;
         }
     };
 
-    GENERATE_CONVERSION(sight::EquidistantModel<S>);
-    GENERATE_CONVERSION(sight::PinholeModel<S>);
-    GENERATE_CONVERSION(sight::Radial4Model<S>);
-    GENERATE_CONVERSION(sight::RadialTanModel<S>);
+    template <typename S>
+    struct convert<sight::ICameraModel<S>>
+    {
+        static Node encode(const sight::ICameraModel<S>& model)
+        {
+            return convert<sight::CameraModel<S>>::encode(model->Clone());
+        }
+
+        static bool decode(const Node& node, sight::ICameraModel<S>& model)
+        {
+            return convert<sight::CameraModel<S>>::decode(node, model->Clone());
+        }
+
+    };
+
 }

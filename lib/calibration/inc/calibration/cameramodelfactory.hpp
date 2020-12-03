@@ -7,7 +7,7 @@
 namespace sight
 {
     template <typename S>
-    std::unique_ptr<CameraModel<S>> CreateCameraModel(const std::string s)
+    CameraModel<S> CreateCameraModel(const std::string s)
     {
         if (Radial4Model<S>::ModelName() == s)
         {

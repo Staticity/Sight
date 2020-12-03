@@ -13,11 +13,11 @@ namespace sight
 {
 
     template <typename S>
-    class CameraModel
+    class ICameraModel
     {
     public:
 
-        virtual ~CameraModel() = default;
+        virtual ~ICameraModel() = default;
 
         virtual bool Project(S x, S y, S z, S& u, S& v, S* Jp = 0, S* Jxyz = 0) const = 0;
 
@@ -33,15 +33,16 @@ namespace sight
 
         virtual bool Unproject(S u, S v, S& xz, S& yz) const = 0;
 
-        virtual void Unproject(const Vec2<S>& uv, Vec2<S>& xzyz)
+        virtual bool Unproject(const Vec2<S>& uv, Vec2<S>& xzyz)
         {
-            Unproject(uv(0), uv(1), xzyz(0), xzyz(1));
+            return Unproject(uv(0), uv(1), xzyz(0), xzyz(1));
         }
 
-        virtual void Unproject(const Vec2<S>& uv, Vec3<S>& xzyz)
+        virtual bool Unproject(const Vec2<S>& uv, Vec3<S>& xzyz)
         {
-            Unproject(uv(0), uv(1), xzyz(0), xzyz(1));
+            const bool result = Unproject(uv(0), uv(1), xzyz(0), xzyz(1));
             xzyz(2) = S(1);
+            return result;
         }
 
         virtual bool JxyzToJxzyz(S z, const S* Jxyz, S* Jxzyz) const
@@ -58,7 +59,7 @@ namespace sight
         virtual const S& Param(int i) const = 0;
         virtual int NumParams() const = 0;
 
-        virtual bool LoadModel(const CameraModel& model)
+        virtual bool LoadModel(const ICameraModel& model)
         {
             if (model.Name() != Name())
             {
@@ -73,7 +74,7 @@ namespace sight
         }
 
         virtual std::string Name() const = 0;
-        virtual std::unique_ptr<CameraModel> Clone() const = 0;
+        virtual std::unique_ptr<ICameraModel> Clone() const = 0;
 
         virtual S ComputeProjectiveRadius(
             const float percentile = .9,
@@ -191,5 +192,112 @@ namespace sight
             return false;
         }
 
+    };
+
+    template <typename S>
+    class CameraModel
+    {
+    public:
+
+        CameraModel() = default;
+        CameraModel(ICameraModel<S>* pModel)
+            : model(pModel)
+        {}
+        CameraModel(std::unique_ptr<ICameraModel<S>> pModel)
+            : model(std::move(pModel))
+        {}
+
+        bool IsInitialized() const
+        {
+            return model != nullptr;
+        }
+
+        ICameraModel<S>* Impl()
+        {
+            return model.get();
+        }
+
+        const ICameraModel<S>* Impl() const
+        {
+            return model.get();
+        }
+
+        bool Project(S x, S y, S z, S& u, S& v, S* Jp = 0, S* Jxyz = 0) const
+        {
+            return model->Project(x, y, z, u, v, Jp, Jxyz);
+        }
+
+        void Project(const Vec2<S>& xzyz, Vec2<S>& uv, S* Jp = 0, S* Jxyz = 0)
+        {
+            return model->Project(xzyz, uv, Jp, Jxyz);
+        }
+
+        void Project(const Vec3<S>& xyz, Vec2<S>& uv, S* Jp = 0, S* Jxyz = 0)
+        {
+            return model->Project(xyz, uv, Jp, Jxyz);
+        }
+
+        bool Unproject(S u, S v, S& xz, S& yz) const
+        {
+            return model->Unproject(u, v, xz, yz);
+        }
+
+        bool Unproject(const Vec2<S>& uv, Vec2<S>& xzyz)
+        {
+            return model->Unproject(uv, xzyz);
+        }
+
+        bool Unproject(const Vec2<S>& uv, Vec3<S>& xzyz)
+        {
+            return model->Unproject(uv, xzyz);
+        }
+
+        bool JxyzToJxzyz(S z, const S* Jxyz, S* Jxzyz) const
+        {
+            return model->JxyzToJxzyz(z, Jxyz, Jxzyz);
+        }
+
+        S& Param(int i)
+        {
+            return model->Param(i);
+        }
+
+        const S& Param(int i) const
+        {
+            return model->Param(i);
+        }
+
+        int NumParams() const
+        {
+            return model->NumParams();
+        }
+
+        bool LoadModel(const ICameraModel<S>& model)
+        {
+            return this->model->LoadModel(model);
+        }
+
+        std::string Name() const
+        {
+            return model->Name();
+        }
+
+        std::unique_ptr<ICameraModel<S>> Clone() const
+        {
+            return model->Clone();
+        }
+
+        S ComputeProjectiveRadius(const float percentile = .9, const S maxRadius = S(4.0)) const
+        {
+            return model->ComputeProjectiveRadius(percentile, maxRadius);
+        }
+
+        bool IterativeUnproject(S u, S v, S& xz, S& yz, const int maxIterations) const
+        {
+            return model->IterativeUnproject(u, v, xz, yz, maxIterations);
+        }
+
+    private:
+        std::unique_ptr<ICameraModel<S>> model;
     };
 }

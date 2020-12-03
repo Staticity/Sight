@@ -38,7 +38,7 @@ namespace sight
     template <typename S>
     S OptimizeCameraIteration(
         const std::vector<Frame<S>>& frames,
-        CameraModel<S>& cam,
+        ICameraModel<S>& cam,
         SE3<S>& camFromFrame,
         S lambda = S(0))
     {

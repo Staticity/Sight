@@ -47,7 +47,7 @@ namespace sight
      */
     template <typename S>
     std::vector<Vec2<S>> ProjectPoints(
-        const CameraModel<S>& model,
+        const ICameraModel<S>& model,
         const std::vector<Vec3<S>>& pointsInCamera,
         bool filterPixels = false,
         const S maxW = S(1),

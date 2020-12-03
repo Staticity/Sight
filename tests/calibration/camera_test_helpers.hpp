@@ -8,7 +8,7 @@
 #include <linear/vec.hpp>
 
 template <typename S>
-void TestCamera(const sight::CameraModel<S>& cam)
+void TestCamera(const sight::ICameraModel<S>& cam)
 {
     using namespace sight;
     
@@ -41,7 +41,7 @@ void TestCamera(const sight::CameraModel<S>& cam)
                     std::vector<S> Juv_params_finite(Juv_params.size());
 
                     // Perturb each parameter
-                    std::unique_ptr<CameraModel<S>> cam_lo, cam_hi;
+                    std::unique_ptr<ICameraModel<S>> cam_lo, cam_hi;
                     for (int idx = 0; idx < cam.NumParams(); ++idx)
                     {
                         // Re-copy the current camera parameters over

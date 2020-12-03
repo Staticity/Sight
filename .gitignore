@@ -2,7 +2,6 @@
 .vs/
 assets/
 bin/
-build/
-build_ninja/
 inputs/
+out/
 outputs/

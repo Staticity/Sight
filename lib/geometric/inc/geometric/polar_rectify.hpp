@@ -311,9 +311,9 @@ namespace sight
     template <typename T, typename S>
     void PolarRectifyImages(
         const Image<T>& im0,
-        const CameraModel<S>& pinhole0,
+        const ICameraModel<S>& pinhole0,
         const Image<T>& im1,
-        const CameraModel<S>& pinhole1,
+        const ICameraModel<S>& pinhole1,
         const SE3<S>& cam1FromCam0,
         Image<T>& out0,
         InversePolarWarp<S>& invWarp0,

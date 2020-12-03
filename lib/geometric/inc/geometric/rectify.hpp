@@ -96,8 +96,8 @@ namespace sight
 
     template <typename S>
     Eigen::Matrix3<S> ComputeFundamentalFromCalibration(
-        const CameraModel<S>& cam0,
-        const CameraModel<S>& cam1,
+        const ICameraModel<S>& cam0,
+        const ICameraModel<S>& cam1,
         const SE3<S>& cam1FromCam0)
     {
         assert(cam0.Name() == "pinhole");
@@ -150,8 +150,8 @@ namespace sight
 
     template <typename S>
     void ComputeEpipolesFromLinearCalibration(
-        const CameraModel<S>& cam0,
-        const CameraModel<S>& cam1,
+        const ICameraModel<S>& cam0,
+        const ICameraModel<S>& cam1,
         const SE3<S>& cam1FromCam0,
         Eigen::Matrix3<S>& F,
         Vec3<S>& e0,
@@ -166,8 +166,8 @@ namespace sight
 
     template <typename S>
     void ComputeEpipolesFromCalibration(
-        const CameraModel<S>& cam0,
-        const CameraModel<S>& cam1,
+        const ICameraModel<S>& cam0,
+        const ICameraModel<S>& cam1,
         const SE3<S>& cam1FromCam0,
         Vec3<S>& e0,
         Vec3<S>& e1)
@@ -197,7 +197,7 @@ namespace sight
 
     template <typename S>
     PinholeModel<S> FindOptimalLinearCalibration(
-        const CameraModel<S>& cam,
+        const ICameraModel<S>& cam,
         const int currentWidth,
         const int currentHeight,
         const int desiredWidth,
@@ -301,7 +301,7 @@ namespace sight
     template <typename T, typename S>
     void UndistortImage(
         const Image<T>& im,
-        const CameraModel<S>& cam,
+        const ICameraModel<S>& cam,
         const PinholeModel<S>& newCam,
         Image<T>& outIm)
     {
@@ -360,7 +360,7 @@ namespace sight
     template <typename T, typename S>
     void UndistortImage(
         const Image<T>& im,
-        const CameraModel<S>& cam,
+        const ICameraModel<S>& cam,
         Image<T>& outIm,
         PinholeModel<S>& outCam,
         const S xRadius = std::numeric_limits<S>::max(),
@@ -540,9 +540,9 @@ namespace sight
     template <typename S>
     Image<S> DepthFromDisparity(
         const Image<S>& disparity,
-        const CameraModel<S>& pinhole0,
+        const ICameraModel<S>& pinhole0,
         const IInverseWarp<S>& invWarp0,
-        const CameraModel<S>& pinhole1,
+        const ICameraModel<S>& pinhole1,
         const IInverseWarp<S>& invWarp1,
         const SE3<S>& cam1FromCam0,
         std::vector<Vec3<S>>* pPointCloud = 0)

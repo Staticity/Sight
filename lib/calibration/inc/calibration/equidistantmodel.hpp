@@ -7,7 +7,7 @@
 namespace sight
 {
     template <typename S>
-    class EquidistantModel : public CameraModel<S>
+    class EquidistantModel : public ICameraModel<S>
     {
     public:
         enum
@@ -160,9 +160,9 @@ namespace sight
         static std::string ModelName() { return "equidistant"; }
         inline std::string Name() const override { return ModelName(); }
 
-        std::unique_ptr<CameraModel> Clone() const override
+        std::unique_ptr<ICameraModel> Clone() const override
         {
-            std::unique_ptr<CameraModel<S>> clone(new EquidistantModel<S>());
+            std::unique_ptr<ICameraModel<S>> clone(new EquidistantModel<S>());
             clone->LoadModel(*this);
             return clone;
         }

@@ -6,7 +6,7 @@
 namespace sight
 {
     template <typename S>
-    class Radial4Model : public CameraModel<S>
+    class Radial4Model : public ICameraModel<S>
     {
     public:
 
@@ -140,9 +140,9 @@ namespace sight
         static std::string ModelName() { return "radial4"; }
         inline std::string Name() const override { return ModelName(); }
 
-        std::unique_ptr<CameraModel> Clone() const override
+        std::unique_ptr<ICameraModel> Clone() const override
         {
-            std::unique_ptr<CameraModel<S>> clone(new Radial4Model<S>());
+            std::unique_ptr<ICameraModel<S>> clone(new Radial4Model<S>());
             clone->LoadModel(*this);
             return clone;
         }
