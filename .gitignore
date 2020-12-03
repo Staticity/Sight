@@ -1,5 +1,8 @@
-.vscode
+.vscode/
+.vs/
 assets/
+bin/
 build/
+build_ninja/
 inputs/
 outputs/

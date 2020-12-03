@@ -1,8 +1,10 @@
 #pragma once
 
-#include <string>
 #include <linear/vec.hpp>
+
+#include <string>
 #include <algorithm>
+#include <memory>
 
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -14,7 +16,9 @@ namespace sight
     class CameraModel
     {
     public:
-        
+
+        virtual ~CameraModel() = default;
+
         virtual bool Project(S x, S y, S z, S& u, S& v, S* Jp = 0, S* Jxyz = 0) const = 0;
 
         virtual void Project(const Vec2<S>& xzyz, Vec2<S>& uv, S* Jp = 0, S* Jxyz = 0)
@@ -28,12 +32,12 @@ namespace sight
         }
 
         virtual bool Unproject(S u, S v, S& xz, S& yz) const = 0;
-        
+
         virtual void Unproject(const Vec2<S>& uv, Vec2<S>& xzyz)
         {
             Unproject(uv(0), uv(1), xzyz(0), xzyz(1));
         }
-        
+
         virtual void Unproject(const Vec2<S>& uv, Vec3<S>& xzyz)
         {
             Unproject(uv(0), uv(1), xzyz(0), xzyz(1));
@@ -54,8 +58,22 @@ namespace sight
         virtual const S& Param(int i) const = 0;
         virtual int NumParams() const = 0;
 
+        virtual bool LoadModel(const CameraModel& model)
+        {
+            if (model.Name() != Name())
+            {
+                return false;
+            }
+
+            for (int i = 0; i < model.NumParams(); ++i)
+            {
+                Param(i) = model.Param(i);
+            }
+            return true;
+        }
+
         virtual std::string Name() const = 0;
-        virtual CameraModel* Clone() const = 0;
+        virtual std::unique_ptr<CameraModel> Clone() const = 0;
 
         virtual S ComputeProjectiveRadius(
             const float percentile = .9,
@@ -75,7 +93,7 @@ namespace sight
             // but it's not gauranteed that the projection is valid
             // and then strictly fails beyond that critical point.
             const S metricStep = S(.1);
-            
+
             S radii[N];
 
             for (int i = 0; i < N; ++i)
@@ -87,7 +105,7 @@ namespace sight
                 S x = dx;
                 S y = dy;
                 const S z = S(1);
-                
+
                 S u, v;
                 S xz, yz; // unused
                 while (Project(x, y, z, u, v) && Unproject(u, v, xz, yz))
@@ -174,51 +192,4 @@ namespace sight
         }
 
     };
-
-    // template <typename S>
-    // class CameraModel
-    // {
-    //     // CameraModel(CameraModelBase* base)
-    //     // {
-            
-    //     // }
-
-    //     bool Project(S x, S y, S z, S& u, S& v, S* J = 0) const
-    //     {
-    //         return model->Project(x, y, z, u, v, J);
-    //     }
-
-    //     bool Unproject(S u, S v, S& xz, S& yz) const
-    //     {
-    //         return model->Unproject(u, v, xz, yz);
-    //     }
-
-    //     // void dProjectdXYZ(S x, S y, S z, S* J) const
-    //     // {
-    //     //     return model->dProjectdXYZ(x, y, z, J);
-    //     // }
-
-    //     S& Param(int i)
-    //     {
-    //         return model->Param(i);
-    //     }
-
-    //     const S& Param(int i) const
-    //     {
-    //         return model->Param(i);
-    //     }
-
-    //     int NumParams() const
-    //     {
-    //         return model->NumParams();
-    //     }
-
-    //     std::string Name() const
-    //     {
-    //         return model->Name();
-    //     }
-
-    //     std::unique_ptr<CameraModelBase*> model;
-    // };
-
 }

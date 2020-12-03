@@ -157,12 +157,13 @@ namespace sight
         inline const S& Param(int i) const override  { return p[i]; }
         inline int NumParams() const override { return NUM_PARAMS; }
 
-        inline std::string Name() const override { return "equidistant"; }
+        static std::string ModelName() { return "equidistant"; }
+        inline std::string Name() const override { return ModelName(); }
 
-        CameraModel* Clone() const override
+        std::unique_ptr<CameraModel> Clone() const override
         {
-            EquidistantModel* clone = new EquidistantModel<S>(p[FX]);
-            std::copy(p.begin(), p.end(), clone->p.begin());
+            std::unique_ptr<CameraModel<S>> clone(new EquidistantModel<S>());
+            clone->LoadModel(*this);
             return clone;
         }
 

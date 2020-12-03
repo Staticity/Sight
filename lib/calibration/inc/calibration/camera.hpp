@@ -18,10 +18,10 @@ namespace sight
 
         void CopyCamera(const CameraModel<S>& cam)
         {
-            model.reset(cam.Clone());
+            model = cam.Clone();
         }
 
         SE3<S> Rt;
-        std::shared_ptr<CameraModel<S>> model;
+        std::unique_ptr<CameraModel<S>> model;
     };
 }

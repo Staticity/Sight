@@ -124,12 +124,13 @@ namespace sight
         inline const S& Param(int i) const override  { return p[i]; }
         inline int NumParams() const override { return NUM_PARAMS; }
 
-        inline std::string Name() const override { return "pinhole"; }
+        static std::string ModelName() { return "pinhole"; }
+        inline std::string Name() const override { return ModelName(); }
 
-        CameraModel* Clone() const override
+        std::unique_ptr<CameraModel<S>> Clone() const override
         {
-            PinholeModel* clone = new PinholeModel<S>(p[FX]);
-            std::copy(p.begin(), p.end(), clone->p.begin());
+            std::unique_ptr<CameraModel<S>> clone(new PinholeModel<S>());
+            clone->LoadModel(*this);
             return clone;
         }
 

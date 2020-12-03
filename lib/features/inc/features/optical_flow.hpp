@@ -172,6 +172,8 @@ namespace sight
                             // Compute Jacobian of this residual
                             // Since, we're using translation, it's
                             // just the Jacobian of the original image.
+                            //
+                            // TODO: Change this to the view1's derivatives.
                             const TT dx = Idx(py, px);
                             const TT dy = Idy(py, px);
                             const TT dxdy = dx * dy;

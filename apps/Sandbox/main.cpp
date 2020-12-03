@@ -30,8 +30,8 @@ void MatchPair(const std::string& filepath1, const std::string& filepath2)
     const auto im1 = Image<uint8_t>::Read(filepath1);
     const auto im2 = Image<uint8_t>::Read(filepath2);
 
-    const auto pyr1 = Pyramid<uint8_t>(ToGrayscale(im1), 10, .8f);
-    const auto pyr2 = Pyramid<uint8_t>(ToGrayscale(im2), 10, .8f);
+    const auto pyr1 = Pyramid<uint8_t>(ToGrayscale(im1), 3, .8f);
+    const auto pyr2 = Pyramid<uint8_t>(ToGrayscale(im2), 3, .8f);
     
     // for (int i = 0; i < pyr1.NumLevels(); ++i)
     // {
@@ -39,9 +39,13 @@ void MatchPair(const std::string& filepath1, const std::string& filepath2)
     //     waitKey(0);
     // }
 
+    auto t = clock();
+
     const int nMaxFeatures = 2000;
     const auto feats1 = sight::FindFAST(pyr1);
+    std::cout << (clock() - t) / double(CLOCKS_PER_SEC) << std::endl;
     const auto descs1 = sight::ComputeORB(pyr1, feats1, nMaxFeatures);
+    std::cout << (clock() - t) / double(CLOCKS_PER_SEC) << std::endl;
 
     const auto feats2 = sight::FindFAST(pyr2);
     const auto descs2 = sight::ComputeORB(pyr2, feats2, nMaxFeatures);
@@ -110,12 +114,52 @@ void MatchPair(const std::string& filepath1, const std::string& filepath2)
 
 int main(int argc, char** argv)
 {
+    cv::VideoCapture cap(1);
+    //cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+    //cap.set(cv::CAP_PROP_FRAME_HEIGHT, 360);
+    //cap.set(cv::CAP_PROP_AUTO_EXPOSURE, 0);
+    //cap.set(cv::CAP_PROP_AUTO_WB, 0);
+
+    cv::String s = cap.getBackendName();
+
+    std::cout << s << std::endl;
+
+    double exposure = 0.0;
+
+    while (cap.isOpened())
+    {
+        cv::Mat frame;
+        cap >> frame;
+
+        const int x = cv::waitKey(1000 / 60) & 0xFF;
+        if (x == 'q')
+        {
+            break;
+        }
+        else if (x == 'a')
+        {
+            exposure--;
+            cap.set(CAP_PROP_EXPOSURE, exposure);
+        }
+        else if (x == 'd')
+        {
+            exposure++;
+            cap.set(CAP_PROP_EXPOSURE, exposure);
+        }
+
+        //cv::Mat gray, thresh;
+        //cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+        //cv::adaptiveThreshold(gray, thresh, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 7, 0.0);
+
+        cv::imshow("Frame", frame);
+    }
+
+    if (rand() % 1 == 0) return 0;
 
     MatchPair(
         "C:\\Users\\Jaime\\source\\repos\\Sight\\assets\\homography\\aerial\\0.jpg",
         "C:\\Users\\Jaime\\source\\repos\\Sight\\assets\\homography\\aerial\\1.jpg"
     );
-
 
     // auto im = sight::CreateCorner<uint8_t>(499, M_PI_2, 0, 255);
 
@@ -125,9 +169,11 @@ int main(int argc, char** argv)
     auto image = sight::Image<uint8_t>::Read(filepath);
     auto gray = sight::ToGrayscale(image);
 
+    auto t = clock();
     const sight::Pyramid<uint8_t> pyr(gray, 5, .8f);
     auto feats = sight::FindFAST(pyr);
     auto descs = sight::ComputeORB(pyr, feats, 500);
+    std::cout << (clock() - t) / double(CLOCKS_PER_SEC) << std::endl;
 
     std::vector<cv::Mat> levelDrawings(pyr.NumLevels());
     for (int i = 0; i < pyr.NumLevels(); ++i)

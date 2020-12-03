@@ -327,8 +327,8 @@ namespace sight
 
         // All of our camera models use normalized pixel space. So we'll undo
         // that to keep everything simpler in pixel space in this function.
-        CameraModel<S>* K0 = pinhole0.Clone();
-        CameraModel<S>* K1 = pinhole0.Clone();
+        auto K0 = pinhole0.Clone();
+        auto K1 = pinhole0.Clone();
         {
             K0->Param(PinholeModel<S>::FX) *= im0.w;
             K0->Param(PinholeModel<S>::FY) *= im0.h;
@@ -341,8 +341,6 @@ namespace sight
             K1->Param(PinholeModel<S>::CY) *= im1.h;
         }
         ComputeEpipolesFromLinearCalibration(*K0, *K1, cam1FromCam0, F, e0h, e1h);
-        delete K0;
-        delete K1;
 
         const Vec2<S> e0 = FromHomogeneous(e0h);
         const Vec2<S> e1 = FromHomogeneous(e1h);

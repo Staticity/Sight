@@ -137,15 +137,13 @@ namespace sight
         const S& Param(int i) const override { return p[i]; }
         int NumParams() const override { return NUM_PARAMS; }
 
-        std::string Name() const override
-        {
-            return "radial4";
-        }
+        static std::string ModelName() { return "radial4"; }
+        inline std::string Name() const override { return ModelName(); }
 
-        CameraModel* Clone() const override
+        std::unique_ptr<CameraModel> Clone() const override
         {
-            Radial4Model* clone = new Radial4Model<S>(p[FX]);
-            std::copy(p.begin(), p.end(), clone->p.begin());
+            std::unique_ptr<CameraModel<S>> clone(new Radial4Model<S>());
+            clone->LoadModel(*this);
             return clone;
         }
         

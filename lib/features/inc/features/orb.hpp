@@ -101,8 +101,8 @@ namespace sight
         // corresponding level.
         const auto fx = d.feat.x;
         const auto fy = d.feat.y;
-        const int x = int(round(fx));
-        const int y = int(round(fy));
+        const int x = cvRound(fx);
+        const int y = cvRound(fy);
 
         // Pre-compute cos/sin for warping the 
         const float cosp = cos(d.feat.angle);
@@ -135,11 +135,11 @@ namespace sight
                 const int y1 = std::clamp(int(round(fy + sinp * ix1 + cosp * iy1)), 0, im.h - 1);
 #else
                 // Assume border-problem points have been filtered out.
-                const int x0 = int(round(fx + cosp * ix0 - sinp * iy0));
-                const int y0 = int(round(fy + sinp * ix0 + cosp * iy0));
+                const int x0 = cvRound(fx + cosp * ix0 - sinp * iy0);
+                const int y0 = cvRound(fy + sinp * ix0 + cosp * iy0);
 
-                const int x1 = int(round(fx + cosp * ix1 - sinp * iy1));
-                const int y1 = int(round(fy + sinp * ix1 + cosp * iy1));
+                const int x1 = cvRound(fx + cosp * ix1 - sinp * iy1);
+                const int y1 = cvRound(fy + sinp * ix1 + cosp * iy1);
 #endif
 
                 // TODO: Determine whether we should use the original feature's
@@ -170,7 +170,7 @@ namespace sight
         // Normalizer
         const int harrisR = 3;
         float scale = 1.f / (4 * (harrisR * 2 + 1) * 255.0f);
-        float scalesq = pow(scale, 2);
+        float scalesq = scale * scale;
 
         // Compute the necessary padding to perform all of the
         // image operations.
@@ -196,8 +196,8 @@ namespace sight
             // Copy the feature into the descriptor
             descs[i].feat = feats[i];
 
-            const int cx = int(round(feats[i].x));
-            const int cy = int(round(feats[i].y));
+            const int cx = cvRound(feats[i].x);
+            const int cy = cvRound(feats[i].y);
 
             // Compute the harris corner score for the corner's weight
             // const float harrisK = 0.04f; // Harris corner constant. Usually chosen between [.04, .06]

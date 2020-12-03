@@ -45,8 +45,8 @@ void TestCamera(const sight::CameraModel<S>& cam)
                     for (int idx = 0; idx < cam.NumParams(); ++idx)
                     {
                         // Re-copy the current camera parameters over
-                        cam_lo.reset(cam.Clone());
-                        cam_hi.reset(cam.Clone());
+                        cam_lo = cam.Clone();
+                        cam_hi = cam.Clone();
 
                         cam_lo->Param(idx) -= eps;
                         cam_hi->Param(idx) += eps;
