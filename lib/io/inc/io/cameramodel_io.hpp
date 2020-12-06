@@ -89,7 +89,6 @@ namespace YAML
         {
             return convert<sight::CameraModel<S>>::decode(node, model->Clone());
         }
-
     };
 
 }

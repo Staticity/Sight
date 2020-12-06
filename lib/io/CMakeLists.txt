@@ -5,7 +5,7 @@ project(io)
 list(APPEND sources
   src/video_device.cpp
   src/video_sources.cpp
-)
+  )
 
 add_library(${PROJECT_NAME} ${sources})
 

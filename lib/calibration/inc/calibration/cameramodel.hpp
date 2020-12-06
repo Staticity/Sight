@@ -201,103 +201,113 @@ namespace sight
 
         CameraModel() = default;
         CameraModel(ICameraModel<S>* pModel)
-            : model(pModel)
+            : m_model(pModel)
         {}
         CameraModel(std::unique_ptr<ICameraModel<S>> pModel)
-            : model(std::move(pModel))
+            : m_model(std::move(pModel))
         {}
+
+        CameraModel(const CameraModel& model)
+            : m_model(model.Clone())
+        {}
+
+        CameraModel& operator=(const CameraModel& model)
+        {
+            m_model = model.Clone();
+            return *this;
+        }
 
         bool IsInitialized() const
         {
-            return model != nullptr;
+            return m_model != nullptr;
         }
 
         ICameraModel<S>* Impl()
         {
-            return model.get();
+            return m_model.get();
         }
 
         const ICameraModel<S>* Impl() const
         {
-            return model.get();
+            return m_model.get();
         }
 
         bool Project(S x, S y, S z, S& u, S& v, S* Jp = 0, S* Jxyz = 0) const
         {
-            return model->Project(x, y, z, u, v, Jp, Jxyz);
+            return m_model->Project(x, y, z, u, v, Jp, Jxyz);
         }
 
         void Project(const Vec2<S>& xzyz, Vec2<S>& uv, S* Jp = 0, S* Jxyz = 0)
         {
-            return model->Project(xzyz, uv, Jp, Jxyz);
+            return m_model->Project(xzyz, uv, Jp, Jxyz);
         }
 
         void Project(const Vec3<S>& xyz, Vec2<S>& uv, S* Jp = 0, S* Jxyz = 0)
         {
-            return model->Project(xyz, uv, Jp, Jxyz);
+            return m_model->Project(xyz, uv, Jp, Jxyz);
         }
 
         bool Unproject(S u, S v, S& xz, S& yz) const
         {
-            return model->Unproject(u, v, xz, yz);
+            return m_model->Unproject(u, v, xz, yz);
         }
 
         bool Unproject(const Vec2<S>& uv, Vec2<S>& xzyz)
         {
-            return model->Unproject(uv, xzyz);
+            return m_model->Unproject(uv, xzyz);
         }
 
         bool Unproject(const Vec2<S>& uv, Vec3<S>& xzyz)
         {
-            return model->Unproject(uv, xzyz);
+            return m_model->Unproject(uv, xzyz);
         }
 
         bool JxyzToJxzyz(S z, const S* Jxyz, S* Jxzyz) const
         {
-            return model->JxyzToJxzyz(z, Jxyz, Jxzyz);
+            return m_model->JxyzToJxzyz(z, Jxyz, Jxzyz);
         }
 
         S& Param(int i)
         {
-            return model->Param(i);
+            return m_model->Param(i);
         }
 
         const S& Param(int i) const
         {
-            return model->Param(i);
+            return m_model->Param(i);
         }
 
         int NumParams() const
         {
-            return model->NumParams();
+            return m_model->NumParams();
         }
 
         bool LoadModel(const ICameraModel<S>& model)
         {
-            return this->model->LoadModel(model);
+            return this->m_model->LoadModel(model);
         }
 
         std::string Name() const
         {
-            return model->Name();
+            return m_model->Name();
         }
 
         std::unique_ptr<ICameraModel<S>> Clone() const
         {
-            return model->Clone();
+            return m_model->Clone();
         }
 
         S ComputeProjectiveRadius(const float percentile = .9, const S maxRadius = S(4.0)) const
         {
-            return model->ComputeProjectiveRadius(percentile, maxRadius);
+            return m_model->ComputeProjectiveRadius(percentile, maxRadius);
         }
 
         bool IterativeUnproject(S u, S v, S& xz, S& yz, const int maxIterations) const
         {
-            return model->IterativeUnproject(u, v, xz, yz, maxIterations);
+            return m_model->IterativeUnproject(u, v, xz, yz, maxIterations);
         }
 
     private:
-        std::unique_ptr<ICameraModel<S>> model;
+        std::unique_ptr<ICameraModel<S>> m_model;
     };
 }

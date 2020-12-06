@@ -60,4 +60,5 @@ namespace sight
         m_capture >> frame;
         return Image<uint8_t>::FromOpenCV(frame);
     }
+
 }

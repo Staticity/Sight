@@ -14,35 +14,29 @@
 
 #include <yaml-cpp/yaml.h>
 #include <io/cameramodel_io.hpp>
+#include <io/calibrationstore.hpp>
 
 int main(int argc, char** argv)
 {
     using namespace sight;
     using namespace std;
 
-    //cout << cv::getBuildInformation() << endl;
-    //cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_VERBOSE);
+    CalibrationStore calStore;
+    calStore.Load("calibration_store");
 
-    sight::VideoDevice device(0);// R"(\\\\?\\usb#vid_32e4&pid_0144&mi_00#6&1e3f9547&1&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\\global)");
-
-    auto node = YAML::LoadFile(R"(C:\Users\Jaime\source\repos\Sight\bin\elp_camera1.yml)");
-    using S = double;
-    auto model = node.as<CameraModel<S>>();
-    std::ofstream out (R"(C:\Users\Jaime\source\repos\Sight\bin\elp_camera1_copy.yml)");
-    YAML::Node copy;
-    copy = model;
-    out << copy;
-
-    //cv::VideoCapture cap(1, cv::CAP_MSMF);
+    sight::VideoDevice device(0);
     if (!device.IsOpen())
     {
         cerr << "Couldn't open the camera" << endl;
         return -1;
     }
 
+    const auto cal = calStore.LoadCamera<double>(device.GetSourceInfo().identifier);
+    const auto& model = cal.model;
+
     int width = static_cast<int>(device.GetProperty(cv::CAP_PROP_FRAME_WIDTH));
     int height = static_cast<int>(device.GetProperty(cv::CAP_PROP_FRAME_HEIGHT));
-    auto start = device.GetProperty(cv::CAP_PROP_POS_MSEC);
+    const auto start = device.GetProperty(cv::CAP_PROP_POS_MSEC);
 
     PinholeModel<double> pinhole = FindOptimalLinearCalibration(
         *model.Impl(),

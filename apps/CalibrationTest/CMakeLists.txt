@@ -20,7 +20,7 @@ target_link_libraries(
   ${OpenCV_LIBS}
 )
 
-find_package(yaml-cpp REQUIRED)
+find_package(yaml-cpp)
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE

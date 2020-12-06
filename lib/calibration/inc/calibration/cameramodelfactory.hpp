@@ -9,6 +9,14 @@ namespace sight
     template <typename S>
     CameraModel<S> CreateCameraModel(const std::string s)
     {
+        if (EquidistantModel<S>::ModelName() == s)
+        {
+            return new EquidistantModel<S>();
+        }
+        if (PinholeModel<S>::ModelName() == s)
+        {
+            return new PinholeModel<S>();
+        }
         if (Radial4Model<S>::ModelName() == s)
         {
             return new Radial4Model<S>();
@@ -16,14 +24,6 @@ namespace sight
         if (RadialTanModel<S>::ModelName() == s)
         {
             return new RadialTanModel<S>();
-        }
-        if (PinholeModel<S>::ModelName() == s)
-        {
-            return new PinholeModel<S>();
-        }
-        if (EquidistantModel<S>::ModelName() == s)
-        {
-            return new EquidistantModel<S>();
         }
 
         return nullptr;

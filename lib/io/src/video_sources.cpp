@@ -11,97 +11,127 @@
 
 #pragma comment(lib, "strmiids.lib")
 
-std::vector<sight::VideoSourceInfo> sight::EnumerateVideoSources()
+namespace sight
 {
-    std::vector<VideoSourceInfo> sources;
-
-    (void) CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
-    HRESULT hr;
-    ICreateDevEnum* pSysDevEnum = NULL;
-    hr = CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC_SERVER,
-        IID_ICreateDevEnum, (void**)&pSysDevEnum);
-
-    if (FAILED(hr))
+    VideoSourceInfo GetVideoSource(int connectedCameraIdx)
     {
-        return sources;
+        const auto sources = EnumerateVideoSources();
+        if (connectedCameraIdx < 0 || connectedCameraIdx >= sources.size())
+        {
+            return {};
+        }
+
+        return sources[connectedCameraIdx];
     }
 
-    // Obtain a class enumerator for the video compressor category.
-    IEnumMoniker* pEnumCat = NULL;
-    hr = pSysDevEnum->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &pEnumCat, 0);
-
-    if (hr == S_OK)
+    VideoSourceInfo GetVideoSource(const std::string& identifier)
     {
-        IBindCtx* pbc;
-        hr = CreateBindCtx(NULL, &pbc);
+        const auto sources = EnumerateVideoSources();
+        for (const auto& source : sources)
+        {
+            if (source.identifier == identifier)
+            {
+                return source;
+            }
+        }
+
+        return {};
+    }
+
+    std::vector<VideoSourceInfo> EnumerateVideoSources()
+    {
+        std::vector<VideoSourceInfo> sources;
+
+        (void)CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+        HRESULT hr;
+        ICreateDevEnum* pSysDevEnum = NULL;
+        hr = CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC_SERVER,
+            IID_ICreateDevEnum, (void**)&pSysDevEnum);
+
+        if (FAILED(hr))
+        {
+            return sources;
+        }
+
+        // Obtain a class enumerator for the video compressor category.
+        IEnumMoniker* pEnumCat = NULL;
+        hr = pSysDevEnum->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &pEnumCat, 0);
 
         if (hr == S_OK)
         {
-            // Enumerate the monikers.
-            IMoniker* pMoniker = NULL;
+            IBindCtx* pbc;
+            hr = CreateBindCtx(NULL, &pbc);
 
-            ULONG cFetched;
-            while (pEnumCat->Next(1, &pMoniker, &cFetched) == S_OK)
+            if (hr == S_OK)
             {
-                IPropertyBag* pPropBag;
-                hr = pMoniker->BindToStorage(pbc, 0, IID_IPropertyBag,
-                    (void**)&pPropBag);
+                // Enumerate the monikers.
+                IMoniker* pMoniker = NULL;
 
-                if (SUCCEEDED(hr))
+                ULONG cFetched;
+                while (pEnumCat->Next(1, &pMoniker, &cFetched) == S_OK)
                 {
-                    VideoSourceInfo source;
-                    source.index = sources.size();
+                    IPropertyBag* pPropBag;
+                    hr = pMoniker->BindToStorage(pbc, 0, IID_IPropertyBag,
+                        (void**)&pPropBag);
 
-                    // To retrieve the filter's friendly name, do the following:
-
-                    std::vector<wchar_t*> fields = {
-                        L"FriendlyName",
-                        L"Description",
-                        L"DevicePath"
-                    };
-
-                    for (int i = 0; i < fields.size(); ++i)
+                    if (SUCCEEDED(hr))
                     {
-                        const auto& field = fields[i];
+                        VideoSourceInfo source;
+                        source.index = sources.size();
 
-                        VARIANT varName;
-                        VariantInit(&varName);
-                        hr = pPropBag->Read(field, &varName, 0);
+                        // To retrieve the filter's friendly name, do the following:
 
-                        std::string value;
-                        if (SUCCEEDED(hr))
+                        std::vector<wchar_t*> fields = {
+                            L"FriendlyName",
+                            L"Description",
+                            L"DevicePath"
+                        };
+
+                        for (int i = 0; i < fields.size(); ++i)
                         {
-                            value = duplicate_backslashes(string_cast(varName.bstrVal));
-                        }
-                        VariantClear(&varName);
+                            const auto& field = fields[i];
 
-                        switch (i)
-                        {
-                        case 0:
-                            source.name = value;
-                            break;
-                        case 1:
-                            source.description = value;
-                            break;
-                        case 2:
-                            source.identifier = value;
-                            break;
-                        default:
-                            break;
+                            VARIANT varName;
+                            VariantInit(&varName);
+                            hr = pPropBag->Read(field, &varName, 0);
+
+                            std::string value;
+                            if (SUCCEEDED(hr))
+                            {
+                                value = duplicate_backslashes(string_cast(varName.bstrVal));
+                            }
+                            VariantClear(&varName);
+
+                            switch (i)
+                            {
+                            case 0:
+                                source.name = value;
+                                break;
+                            case 1:
+                                source.description = value;
+                                break;
+                            case 2:
+                                source.identifier = value;
+                                break;
+                            default:
+                                break;
+                            }
                         }
+
+                        source.valid = true;
+                        sources.push_back(source);
+
+                        pPropBag->Release();
                     }
-
-                    sources.push_back(source);
-
-                    pPropBag->Release();
+                    pMoniker->Release();
                 }
-                pMoniker->Release();
+                pEnumCat->Release();
             }
-            pEnumCat->Release();
-        }
 
-        pbc->Release();
+            pbc->Release();
+        }
+        pSysDevEnum->Release();
+        return sources;
     }
-    pSysDevEnum->Release();
-    return sources;
+
 }
