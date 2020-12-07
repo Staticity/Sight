@@ -80,9 +80,21 @@ namespace sight
             return Apply(u, std::plus<S>());
         }
 
+        Vec& operator+=(const Vec& u)
+        {
+            *this = *this + u;
+            return *this;
+        }
+
         Vec operator-(const Vec& u) const
         {
             return Apply(u, std::minus<S>());
+        }
+
+        Vec& operator-=(const Vec& u)
+        {
+            *this = *this - u;
+            return *this;
         }
 
         Vec Normalized() const

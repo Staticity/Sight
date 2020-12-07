@@ -5,7 +5,10 @@
 #include <calibration/radialtanmodel.hpp>
 #include <geometric/rectify.hpp>
 #include <image/image.hpp>
+#include <io/cameramodel_io.hpp>
+#include <io/calibrationstore.hpp>
 #include <io/video_device.hpp>
+#include <optimization/camera.hpp>
 
 #include <Eigen/Eigen>
 
@@ -13,8 +16,7 @@
 #include <opencv2/core/utils/logger.hpp>
 
 #include <yaml-cpp/yaml.h>
-#include <io/cameramodel_io.hpp>
-#include <io/calibrationstore.hpp>
+
 
 int main(int argc, char** argv)
 {
@@ -31,8 +33,16 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    const auto cal = calStore.LoadCamera<double>(device.GetSourceInfo().identifier);
-    const auto& model = cal.model;
+    auto cal = calStore.LoadCamera<double>(device.GetSourceInfo().identifier);
+    auto& model = cal.model;
+
+    using S = float;
+    std::vector<OptimizeCameraIndex> indices;
+    std::vector<Vec2<S>*> points2D;
+    std::vector<Vec3<S>*> points3D;
+    std::vector<SE3<S>*> camFromWorlds;
+    std::vector<ICameraModel<S>*> cameras;
+    sight::OptimizeCameraIteration<S>(indices, points2D, points3D, camFromWorlds, cameras);
 
     int width = static_cast<int>(device.GetProperty(cv::CAP_PROP_FRAME_WIDTH));
     int height = static_cast<int>(device.GetProperty(cv::CAP_PROP_FRAME_HEIGHT));
