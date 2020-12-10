@@ -64,7 +64,7 @@ namespace sight
             const S ts = t * poly;
 
             const S invr = (r < std::numeric_limits<S>::epsilon()) ? S(1) : S(1) / r;
-            const S s = ts * invr;
+            const S s = (r < std::numeric_limits<S>::epsilon()) ? S(1) : ts * invr;
 
             const S sxp = s * xp;
             const S syp = s * yp;
@@ -112,7 +112,7 @@ namespace sight
 
                 const S invr2 = invr * invr;
                 const S r2p1 = r * r + 1;
-                const S invr2p1 = (r2p1 < std::numeric_limits<S>::epsilon()) ? S(1) : S(1) / r2p1;
+                const S invr2p1 = S(1) / r2p1;
 
                 const S ds_dr =
                     ((2 * p[K1] * t2) + (4 * p[K2] * t4) + (6 * p[K3] * t6) + (8 * p[K4] * t8)) * invr * invr2p1 -

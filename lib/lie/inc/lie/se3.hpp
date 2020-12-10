@@ -24,6 +24,11 @@ namespace sight
             , t(t)
         {}
 
+        SE3(const SE3<S>& s)
+            : R(s.R)
+            , t(s.t)
+        {}
+
         inline S& operator()(int i, int j)
         {
             return j < 3 ? R(i, j) : t(i);

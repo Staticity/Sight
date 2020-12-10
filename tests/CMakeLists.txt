@@ -16,6 +16,7 @@ add_executable(tests
     lie/se3_test.cpp
     lie/vec_test.cpp
     lie/exp_utils_test.cpp
+    optimization/camera_test.cpp
 )
 
 # Include Eigen
@@ -40,7 +41,9 @@ target_link_libraries(
   features
   geometric
   image
+  io
   lie
   linear
+  optimization
   utils
 )

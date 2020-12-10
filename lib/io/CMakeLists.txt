@@ -29,7 +29,7 @@ target_link_libraries(${PROJECT_NAME} INTERFACE Eigen3::Eigen)
 find_package(yaml-cpp REQUIRED)
 target_link_libraries(
     ${PROJECT_NAME}
-    PRIVATE
+    PUBLIC
     yaml-cpp)
 
 target_include_directories(

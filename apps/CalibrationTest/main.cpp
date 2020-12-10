@@ -40,9 +40,10 @@ int main(int argc, char** argv)
     std::vector<OptimizeCameraIndex> indices;
     std::vector<Vec2<S>*> points2D;
     std::vector<Vec3<S>*> points3D;
-    std::vector<SE3<S>*> camFromWorlds;
+    std::vector<SE3<S>*> devicesFromWorld;
+    std::vector<SE3<S>*> camsFromDevice;
     std::vector<ICameraModel<S>*> cameras;
-    sight::OptimizeCameraIteration<S>(indices, points2D, points3D, camFromWorlds, cameras);
+    sight::OptimizeCameraIteration<S>(indices, points2D, points3D, devicesFromWorld, camsFromDevice, cameras);
 
     int width = static_cast<int>(device.GetProperty(cv::CAP_PROP_FRAME_WIDTH));
     int height = static_cast<int>(device.GetProperty(cv::CAP_PROP_FRAME_HEIGHT));

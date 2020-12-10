@@ -1,11 +1,12 @@
 #pragma once
 
+#include <linear/vec_ops.hpp>
+
 #include <cmath>
 #include <functional>
 #include <algorithm>
 #include <array>
-
-#include <linear/vec_ops.hpp>
+//#include <fstream>
 
 namespace sight
 {
@@ -20,6 +21,12 @@ namespace sight
 
     template <typename S>
     using Vec4 = Vec<S, 4>;
+
+    template <typename S>
+    using Vec5 = Vec<S, 5>;
+
+    template <typename S>
+    using Vec6 = Vec<S, 6>;
 
     template <typename S, int N>
     class Vec
@@ -174,4 +181,15 @@ namespace sight
     {
         return v * s;
     }
+}
+
+template <typename S, int N>
+std::ostream& operator<<(std::ostream& o, const sight::Vec<S, N>& v)
+{
+    for (int i = 0; i < N; ++i)
+    {
+        o << v(i) << ' ';
+    }
+    o << std::endl;
+    return o;
 }
